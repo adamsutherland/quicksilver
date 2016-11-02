@@ -45,7 +45,7 @@ def planet_orbit(mp, ms, d, a, e, theta):
 
 def mod_planet_orbit(mp, ms, d, a, e, theta):
     theta = np.deg2rad(theta)
-    v=v=mod_mean_mo(mp,ms,d,a)*a*((1-e)/(1+e))**.5
+    v=mod_mean_mo(mp,ms,d,a)*a*((1-e)/(1+e))**.5
     vx=-np.sin(theta)*v
     vy=np.cos(theta)*v
     vp = secondary_orbit(mp, ms, d)*ms/(mp+ms)
@@ -452,15 +452,15 @@ class quick:
         # 2. to refer to the inner class, you must use self.Bank
         # 3. no need to use an inner class here
         self.directory = directory
-        lines = [line.rstrip('\n') for line in open('param_default.in')]
+        lines = [line.rstrip('\n') for line in open(self.directory+'param.in')]
         param = np.array([])
         for line in lines:
             if line.find("=") >0:
                 param = np.append(param,line[line.find("=")+2:])
         self.param = param
-        self.params()
+        self.param_set()
         
-        lines = [line.rstrip('\n') for line in open('mercury_default.inc')]
+        lines = [line.rstrip('\n') for line in open(self.directory+'mercury.inc')]
         merc_in= np.array([])
         for line in lines:
             if line.find('parameter') > 0:
@@ -468,17 +468,7 @@ class quick:
                     if line.find("=") >0:
                         merc_in = np.append(merc_in,line[line.find("=")+2:-1])
         self.merc_in = merc_in
-        self.max_num_bod= float(merc_in[0])
-        self.max_num_close=float(merc_in[1])
-        self.max_num_messages=float(merc_in[2])
-        self.huge = merc_in[3]
-        self.max_num_files=float(merc_in[4])
-        self.K2 = merc_in[5]
-        self.AU2cm = merc_in[6]
-        self.mass_sun2grams = merc_in[7]
-        self.isbinary = merc_in[8]
-        self.primary_name = merc_in[9]
-        self.ce_binary = merc_in[10]
+        self.merc_set()
         
         self.secondary_mass = .5
         self.binary_separation = .5
@@ -498,7 +488,7 @@ class quick:
         #self.y = np.array([])
         #self.z = np.array([])
 
-    def add_planet(self, m, a, e=0, kep_or_mod="Mod", name="PL", theta=0):
+    def add_big(self, m, a, e=0, kep_or_mod="Mod", name="PL", theta=0):
         #self.names = np.append(self.names,name)
         #self.a = np.append(self.a,a)
         #self.e = np.append(self.e,e)
@@ -530,17 +520,25 @@ class quick:
     def add_resonance(self, m, n, e=0, kep_or_mod="Mod", name="PL", theta=0):
         # adds planet at resonance to last added planet
         a = solve(self.primary_mass,self.secondary_mass,self.binary_separation,float(self.planet_data[self.planet_num][3]),n)
-        self.add_planet(m, a, e, kep_or_mod, name, theta)    
+        self.add_big(m, a, e, kep_or_mod, name, theta)    
 
-    def save_param(self,name):#name is string
+    def save_settings(self,name):#name is string
         self.collect_param()
-        np.save(name,self.param)
+        self.collect_merc()
+        settings = np.append(self.param,self.merc_in)
+        settings = np.append(settings,[self.secondary_mass,self.binary_separation])
+        np.save(name,settings)
     
-    def load_param(self,name):
-        self.param = np.load(name+'.npy')
-        self.params()
+    def load_settings(self,name):
+        settings = np.load(name+'.npy')
+        self.param = settings[:23]
+        self.merc_in = settings[23:-2]
+        self.secondary_mass = float(settings[-2])
+        self.binary_separation = float(settings[-1])
+        self.param_set()
+        self.merc_set()
         
-    def params(self):
+    def param_set(self):
         self.algorithm = self.param[0]
         self.start_time = self.param[1]
         self.stop_time = self.param[2]
@@ -589,6 +587,19 @@ class quick:
         self.param[20] = self.Hybrid_integrator_changeover
         self.param[21] = self.data_dumps
         self.param[22] = self.periodic_effects
+
+    def merc_set(self):
+        self.max_num_bod= float(self.merc_in[0])
+        self.max_num_close=float(self.merc_in[1])
+        self.max_num_messages=float(self.merc_in[2])
+        self.huge = self.merc_in[3]
+        self.max_num_files=float(self.merc_in[4])
+        self.K2 = self.merc_in[5]
+        self.AU2cm = self.merc_in[6]
+        self.mass_sun2grams = self.merc_in[7]
+        self.isbinary = self.merc_in[8]
+        self.primary_name = self.merc_in[9]
+        self.ce_binary = self.merc_in[10]
     
     def collect_merc(self):
         self.merc_in = [self.max_num_bod,self.max_num_close,self.max_num_messages,self.huge,
