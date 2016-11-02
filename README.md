@@ -149,26 +149,6 @@ for hdf in hdfs:
 plt.axis('equal')
 plt.show()
 ```
+![example1](example1.png)
 
 
-
-```python
-folder = "/home/adam/Projects/CBPstab/coolplot/"
-hdfs = glob.glob(folder+'*SM*.hdf')
-plt.figure()
-plt.style.use('ggplot')
-for hdf in hdfs:
-    p = pd.read_hdf(hdf,"bary")
-    fates = pd.read_hdf(hdf,"fate")
-    fate = fates.values[0]
-    if fate == 'survived':
-        plt.scatter(p.x.tail(1), p.y.tail(1))
-    if fate == 'ejected':
-        plt.scatter(p.x.tail(1), p.y.tail(1), c='r')
-    if fate == 'STAR1':
-        plt.scatter(p.x.tail(1), p.y.tail(1), c='purple')
-    if fate == 'STAR2':
-        plt.scatter(p.x.tail(1), p.y.tail(1), c='green')
-plt.axis('equal')
-plt.show()
-```
