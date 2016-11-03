@@ -1,27 +1,18 @@
 # quicksilver
 Python program to easily set up Mercury runs, particularly circumbinary planets.
-This program uses Rachel Smullen's modified version of Mercury for circumbinary planets but will also work for single star systems and unmodified version of Mercury. 
+This program uses Rachel Smullen's [modified version of Mercury](https://github.com/rsmullen/mercury6_binary) for circumbinary planets but will also work for single star systems and unmodified version of Mercury. 
 This guide will err on the side of covering basic Mercury information in order to help those using Mercury for the first time.
 
 Setting up runs
 ===========
-add required files to a new directory
-```
-import quicksilver or import quicksilver as qs
-run = quick(‘directory’)
-```
+Add required files to a new directory
 
 ```python
 import quicksilver as qs
+run = qs.quick("Path_to_directory")
 ```
 
-
-```python
-folder = "/home/adam/Projects/cbttv/mod_mean/object_check/"
-run = qs.quick(folder)
-```
-
-quicksilver autoloads the setting from the last used current param.in and mercury.inc
+quicksilver autoloads the last used settings from the current param.in and mercury.inc
 Viewing and changing parameters is as easy as:
 
 
@@ -36,7 +27,7 @@ print run.algorithm
 
 
 It is possible to save the current settings and load them at anytime.
-They are saved as a numpy array with the given name.
+They are saved as a numpy arrays with the given name.
 
 
 ```python
@@ -73,27 +64,57 @@ run.build()
 Running Mercury
 -----
 Remember to compile the code before each run
-
+```python
+remove .out, .dmp, .aie, .clo, .hdf files
+compile using gfortran -o mercury6 mercury6_ras.for for example
+run mercury6
+compile and run close6 & element6
+```
+I would like to be able to star the runs from python but executing shell command from python is buggy and this way you can have more flexibility with how you start you runs, such as choosing what cores to run Mercury on.
 
 Processing Output
 ==========
+This makes use of the convenient and powerful python [pandas](http://pandas.pydata.org/pandas-docs/stable/) and HDF files. This makes reading and writing incredibly fast.
+First convert the .aei files to HDF and convert from central body coordinates to desired coordinates
 ```
-binarybary(folder)
+aei2hdf(folder) # converts .aei to HDF
+binarybary(folder) # converts to binary barycentric coordinates
+jacobi(folder) # coverts to Jacobi coordinates
+bary(folder) # converts to absolute barycentric coordinates
 ```
-You can calculate the orbit elements individually, this isn’t automatically done since it is a very computationally intensive process
+You can calculate the orbit elements for each coordinate system individually, this isn’t automatically done since it is a very computationally intensive process
 ```
 cal_elements(folder,’coordinate system’)
 ```
+Where ‘coordinate system’ is ‘central’, ’bary’, ‘jacobi’, or ‘totalbary’.
 
+It is possible to read the results of info.out and determine the fate of each body.
+```
+fates(folder)
+```
+Reading the files is as easy as:
+```
+import pandas as pd
+p = pd.read_hdf(‘path_to_hdf’,’coordinate system’)
+p_fate = pd.read_hdf(‘path_to_hdf’,’fate’)
+```
+and the information is available as
+```
+print p.x[0]
+p.pomega.plot()
+print p_fate.fate.values
+```
 
 
 Miscellaneous
 -----
 Why is it called quicksilver?
 
+Quicksilver is an archaic name for the liquid metal mercury.
+
 Please acknowledge the use of my code in any publication.
 
-Any feedback is appreciated, especially suggestions or possible contributions.
+Any feedback is appreciated, especially bugs, suggestions, or possible contributions.
 
 Examples
 ==========
