@@ -52,24 +52,18 @@ run.add_big(0.001,3.0) # adds a planet of mass 0.001 and semimajor axis of 3
 run.add_big(0.001, 4, e=.2, kep_or_mod="Kep", name="SuperEarth", theta=30)
 run.add_small(7.0)
 ```
+Be sure to add the bodies only after you have changed all the settings since the planet initial velocities are calculated during the when the function is called. All planets are currently coplanar but with plans to include inclined orbits in the future. The default intial velocity is given by the modified mean motion according to [Lee & Peale 2006](http://adsabs.harvard.edu/abs/2006Icar..184..573L) but you can specify Keplerian intial velocity if desired. Eccentric orbits are placed at apocenter. Theta is the offset from the planets being aligned with the secondary in degrees. The default name is PL# where number is nth big body added. Similar with small bodies but with the name SM#.
 
-All planets are currently coplanar but with plans to include inclined orbits in the future. The default intial velocity is given by the modified mean motion according to [Lee & Peale 2006](http://adsabs.harvard.edu/abs/2006Icar..184..573L) but you can specify Keplerian intial velocity if desired. Eccentric orbits are placed at apocenter. Theta is the offset from the planets being aligned with the secondary in degrees. The default name is PL# where number is nth big body added. Similar with small bodies but with the name SM#.
-
-
+To make the files
 ```python
-# To make the files
 run.build()
 ```
 
 Running Mercury
 -----
-Remember to compile the code before each run
-```python
-remove .out, .dmp, .aie, .clo, .hdf files
-compile using gfortran -o mercury6 mercury6_ras.for for example
-run mercury6
-compile and run close6 & element6
-```
+Remove .out, .dmp, .aie, .clo, .hdf files from older runs before running. Remember to compile the code before each run. Using ```gfortran -o mercury6 mercury6_ras.for``` for example.
+Then run mercury6, element6, and close6 optionally.
+ 
 I would like to be able to star the runs from python but executing shell command from python is buggy and this way you can have more flexibility with how you start you runs, such as choosing what cores to run Mercury on.
 
 Processing Output
@@ -82,11 +76,11 @@ binarybary(folder) # converts to binary barycentric coordinates
 jacobi(folder) # coverts to Jacobi coordinates
 bary(folder) # converts to absolute barycentric coordinates
 ```
-You can calculate the orbit elements for each coordinate system individually, this isn’t automatically done since it is a very computationally intensive process
+You can calculate the orbit elements for each coordinate system individually, this isn’t automatically done since it is a computationally intensive process
 ```
-cal_elements(folder,’coordinate system’)
+cal_elements(folder,'coordinate system')
 ```
-Where ‘coordinate system’ is ‘central’, ’bary’, ‘jacobi’, or ‘totalbary’.
+Where 'coordinate system' is 'central', 'bary', 'jacobi', or 'totalbary'.
 
 It is possible to read the results of info.out and determine the fate of each body.
 ```
@@ -95,8 +89,8 @@ fates(folder)
 Reading the files is as easy as:
 ```
 import pandas as pd
-p = pd.read_hdf(‘path_to_hdf’,’coordinate system’)
-p_fate = pd.read_hdf(‘path_to_hdf’,’fate’)
+p = pd.read_hdf('path_to_hdf','coordinate system')
+p_fate = pd.read_hdf('path_to_hdf','fate')
 ```
 and the information is available as
 ```

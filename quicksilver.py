@@ -6,10 +6,10 @@ Orbit plotting
 """
 
 import pandas as pd
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import glob as glob
-import tables
+#import tables
 
 G = 2.959122082855911E-4
 
@@ -134,10 +134,10 @@ def read_param(paramfile):
                 mass = line[24:]
     return float(mass)
 
-def get_fate(hdf):
-    hdf = tables.open_file(hdf, mode='r')
-    return hdf.root._v_attrs.fate
-    hdf.close()
+#def get_fate(hdf):
+#    hdf = tables.open_file(hdf, mode='r')
+#    return hdf.root._v_attrs.fate
+#    hdf.close()
 
 def xv2el_swifter(mu,x,y,z,vx,vy,vz):
   # data has m,x,y,z,u,v,w
@@ -284,9 +284,9 @@ def fates(folder):
         print planet, fate
         fates = pd.DataFrame([fate])
         fates.to_hdf(hdf,'fate')
-        hdf = tables.open_file(hdf, mode='a')
-        hdf.root._f_setattr('fate',fate)
-        hdf.close()
+        #hdf = tables.open_file(hdf, mode='a')
+        #hdf.root._f_setattr('fate',fate)
+        #hdf.close()
 
 def binary_bary(folder):
     tic()
@@ -537,7 +537,7 @@ class quick:
         self.binary_separation = float(settings[-1])
         self.param_set()
         self.merc_set()
-        
+    
     def param_set(self):
         self.algorithm = self.param[0]
         self.start_time = self.param[1]
