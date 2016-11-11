@@ -74,6 +74,9 @@ def period(mp, ms, a): # in days
     T = np.pi*2*(a**3/(G*(mp+ms)))**.5
     return T
 
+def mod_period(mp,ms,d,a):
+    return (mod_mean_mo(mp,ms,d,a)**-1)*2*np.pi
+
 def sma(mp,ms,P):
     a = (G*(mp+ms)*P**2/(4*np.pi**2))**(1./3)
     return a
@@ -133,6 +136,10 @@ def read_param(paramfile):
             if 'mass' in line:
                 mass = line[24:]
     return float(mass)
+
+def read_clo(closefile):
+    df = pd.read_csv(closefile, names=['time', 'object', 'dmin', 'a1', 'e1', 'i1', 'a2', 'e2', 'i2'], delim_whitespace=True, skiprows=4)
+    return df
 
 #def get_fate(hdf):
 #    hdf = tables.open_file(hdf, mode='r')
@@ -252,18 +259,22 @@ def single(folder):
 def aei2hdf(folder):
     tic()
     aeis = glob.glob(folder+'*.aei')
+    maxtime = 0
     for aei in aeis:
         print aei
         p = read_aei(aei)
+        if len(p) > maxtime:
+            pmax = p
+            maxtime = len(p)
         p.to_hdf(aei[:-4]+'.hdf','central')
     s1 = pd.DataFrame()
-    s1['x'] =  p.x*0.0
-    s1['y'] =  p.y*0.0
-    s1['z'] =  p.z*0.0
-    s1['vx'] = p.vx*0.0
-    s1['vy'] = p.vy*0.0
-    s1['vz'] = p.vz*0.0
-    s1['time'] = p.time
+    s1['x'] =  pmax.x*0.0
+    s1['y'] =  pmax.y*0.0
+    s1['z'] =  pmax.z*0.0
+    s1['vx'] = pmax.vx*0.0
+    s1['vy'] = pmax.vy*0.0
+    s1['vz'] = pmax.vz*0.0
+    s1['time'] = pmax.time
     s1['mass'] = read_param(folder+'/param.in')
     s1.to_hdf(folder+"STAR1.hdf",'central')
     toc()
@@ -287,6 +298,13 @@ def fates(folder):
         #hdf = tables.open_file(hdf, mode='a')
         #hdf.root._f_setattr('fate',fate)
         #hdf.close()
+
+def close(folder):
+    clos = glob.glob(folder+'*.clo')
+    for clo in clos:
+        print clo
+        p = read_clo(clo)
+        p.to_hdf(clo[:-4]+'.hdf','close')
 
 def binary_bary(folder):
     tic()
@@ -362,13 +380,13 @@ def jacobi(folder):
     
     # write jacobi for central body
     s1 = pd.DataFrame()
-    s1['x'] =  p.x*0.0
-    s1['y'] =  p.y*0.0
-    s1['z'] =  p.z*0.0
-    s1['vx'] = p.vx*0.0
-    s1['vy'] = p.vy*0.0
-    s1['vz'] = p.vz*0.0
-    s1['time'] = p.time
+    s1['x'] =  s2.x*0.0
+    s1['y'] =  s2.y*0.0
+    s1['z'] =  s2.z*0.0
+    s1['vx'] = s2.vx*0.0
+    s1['vy'] = s2.vy*0.0
+    s1['vz'] = s2.vz*0.0
+    s1['time'] = s2.time
     s1['mass'] = read_param(folder+'/param.in')
     s1.to_hdf(folder+"STAR1.hdf",'jacobi')
     
