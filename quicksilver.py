@@ -101,7 +101,7 @@ def elements(df,m):
     p1el = np.zeros((len(df),6))
     #prog = 5
     for n in xrange(len(df)):
-        p1el[n,:] = xv2el_swifter(m*G,df.x.values[n],df.y.values[n],df.z.values[n],df.vx.values[n],df.vy.values[n],df.vz.values[n])
+        p1el[n,:] = xv2el_swifter(G*m.values[n],df.x.values[n],df.y.values[n],df.z.values[n],df.vx.values[n],df.vy.values[n],df.vz.values[n])
         #if int(float(n)/len(df)*100) == prog:
         #    print prog, '%'
         #    prog = prog+5
@@ -117,7 +117,7 @@ def cal_elements(folder,coord):
     hdfs = glob.glob(folder+'/*.hdf')
     central_mass = read_param(folder+'/param.in')
     if coord == 'binarybary':
-        sec = pd.read_hdf(folder+'/STAR2.hdf')
+        sec = pd.read_hdf(folder+'/STAR2.hdf','binarybary')
         secondary_mass = sec.mass[0]
         central_mass = central_mass + secondary_mass 
     for hdf in hdfs:
@@ -240,99 +240,84 @@ def xv2el_swifter(mu,x,y,z,vx,vy,vz):
   if (omega < 0.0): omega = omega + 2.*np.pi
   return [a, ecc, np.degrees(inc), np.degrees(omega), np.degrees(capom), np.degrees(capm)]
 
-def xv2el_array(mu,x,y,z,vx,vy,vz):
-  # data has m,x,y,z,u,v,w
+def xv2el_array_bound(mu,x,y,z,vx,vy,vz):
+    
+    mu = np.array(mu)
+    x = np.array(x)
+    y = np.array(y)
+    z = np.array(z)
+    vx = np.array(vx)
+    vy = np.array(vy)
+    vz = np.array(vz)
+    
+    num = len(x)
+    
+    TINY=np.ones(num)*4.E-15
+    #ellipse= np.ones(num)
+    #parabola=np.zeros(num)
+    #hyperbola= np.ones(num)
+    
+    a = np.zeros(num)
+    ecc = np.zeros(num)
+    inc = np.zeros(num)
+    capom = np.zeros(num)
+    omega = np.zeros(num)
+    capm = np.zeros(num)
+    
+    u = np.zeros(num)
+    w = np.zeros(num)
+    cape = np.zeros(num)
+    face = np.zeros(num)
+    capf = np.zeros(num)
+    tmpf = np.zeros(num)
+    
+    r = (x**2 + y**2 + z**2)**.5
+    v2 = vx**2 + vy**2 + vz**2
+    hx = y*vz - z*vy
+    hy = z*vx - x*vz
+    hz = x*vy - y*vx
+    h2 = hx*hx + hy*hy + hz*hz
+    h = np.sqrt(h2)
+    #if np.min(h2) == 0.0: return
+    rdotv = x*vx + y*vy + z*vz
+    energy = 0.5*v2 - mu/r
+    fac = hz/h
+    inc[(fac <  -1.0)] = np.ones(num)[(fac < -1.0)]*np.pi
+    inc[(fac >= -1.0) & (fac < 1.0)] = np.arccos(fac[(fac >= -1.0) & (fac < 1.0)])
+    fac = np.sqrt(hx*hx + hy*hy)/h
+    u = np.arctan2(y,x)
+    u[(hz < 0.0)] = -u[(hz < 0.0)]
+    capom[(fac >= TINY)] = np.arctan2(hx[(fac >= TINY)], -hy[(fac >= TINY)])
+    u[(fac >= TINY) & (np.sin(inc)==0.)] = np.zeros(num)[(fac >= TINY) & (np.sin(inc)==0.)]
+    tmp = np.arctan2(z/np.sin(inc), x*np.cos(capom) + y*np.sin(capom))
+    u[(fac >= TINY) & (np.sin(inc)!=0.)] = tmp[(fac >= TINY) & (np.sin(inc)!=0.)]
+    capom[(capom < 0.0)] = capom[(capom < 0.0)] + 2.*np.pi
+    u[(u < 0.0)] = u[(u < 0.0)] + 2.*np.pi
+    
+    a = -0.5*mu/energy
+    fac = 1.0 - h2/(mu*a)
+    
+    cape[(fac <= TINY)] = u[(fac <= TINY)]
+    w[(fac <= TINY)] = u[(fac <= TINY)]
+    
+    ecc[(fac > TINY)] = np.sqrt(fac[(fac > TINY)])
+    cape[(fac > TINY)] = np.zeros(num)[(fac > TINY)]
+    tmp = (a - r)/(a*ecc)
+    face[(fac > TINY)] = tmp[(fac > TINY)]
+    cape[(fac > TINY) & (face <  -1.0)] = np.pi*np.ones(num)[(fac > TINY) & (face < -1.0)]
+    cape[(fac > TINY) & (face >= -1.0) & (face < 1.0)] = np.arccos(face[(fac > TINY) & (face >= -1.0) & (face < 1.0)])
+    cape[(fac > TINY) & (rdotv < 0.0)] = 2.*np.pi - cape[(fac > TINY) & (rdotv < 0.0)]
+    fac2 = 1.0 - ecc*np.cos(cape)
+    cw = (np.cos(cape) - ecc)/fac2
+    sw = np.sqrt(1.0 - ecc*ecc)*np.sin(cape)/fac2
+    w2 = np.arctan2(sw, cw)
+    w[(fac > TINY)] = w2[(fac > TINY)]
+    w[(w < 0.0)] = w[(w < 0.0)] + 2.*np.pi
+    capm = cape - ecc*np.sin(cape)
+    omega = u - w
+    omega[(omega < 0.0)] = omega[(omega < 0.0)] + 2.*np.pi
 
-  # Adapted from swifter routine
-  TINY=4.E-15
-  ellipse=-1
-  parabola=0
-  hyperbola=1
-
-  a = np.zeros(len(x)); ecc = np.zeros(len(x)); inc = np.zeros(len(x))
-  capom = np.zeros(len(x)); omega = np.zeros(len(x)); capm = np.zeros(len(x))
-  
-  u = np.zeros(len(x))
-  iorbit_type = np.zeros(len(x))
-  w = np.zeros(len(x))
-  cape = np.zeros(len(x))
-  face = np.zeros(len(x))
-  capf = np.zeros(len(x))
-  tmpf = np.zeros(len(x))
-  
-  r = (x**2 + y**2 + z**2)**.5
-  v2 = vx**2 + vy**2 + vz**2
-  hx = y*vz - z*vy
-  hy = z*vx - x*vz
-  hz = x*vy - y*vx
-  h2 = hx*hx + hy*hy + hz*hz
-  h = np.sqrt(h2)
-  if np.min(h2) == 0.0: return
-  rdotv = x*vx + y*vy + z*vz
-  energy = 0.5*v2 - mu/r
-  fac = hz/h
-  inc[fac < -1.0] = np.pi
-  inc[fac <  1.0] = np.arccos(fac[fac < 1.0])
-  fac = np.sqrt(hx*hx + hy*hy)/h
-  u[fac < TINY] = np.arctan2(y[fac < TINY], x[fac < TINY])
-  u[(fac < TINY) & (hz < 0.0)] = -np.arctan2(y[(fac < TINY) & (hz < 0.0)], x[(fac < TINY) & (hz < 0.0)])
-  capom[fac > TINY] = np.arctan2(hx[fac > TINY], -hy[fac > TINY])
-  u[(fac > TINY) & (np.sin(inc)==0.0)] = 0.0 # RAS-- to get rid of error
-  mask1 = (fac > TINY) & (np.sin(inc)!=0.0)
-  ratio = z/np.sin(inc)
-  ratio2 = x*np.cos(capom) + y*np.sin(capom)
-  u[mask1] = np.arctan2(ratio[mask1], ratio2[mask1])
-  capom[(capom < 0.0)] = capom[(capom < 0.0)] + 2.*np.pi
-  u[(u < 0.0)] = u[(u < 0.0)] + 2.*np.pi
-  # orbit type determination
-  iorbit_type[(np.abs(energy*r/mu) < np.sqrt(TINY))] = parabola
-  a[(np.abs(energy*r/mu) >= np.sqrt(TINY))] = -0.5*mu[(np.abs(energy*r/mu) >= np.sqrt(TINY))]/energy[(np.abs(energy*r/mu) >= np.sqrt(TINY))]
-  fac[(np.abs(energy*r/mu) >= np.sqrt(TINY)) & (a < 0.0)] = -h2[(np.abs(energy*r/mu) >= np.sqrt(TINY)) & (a < 0.0)]/(mu*a[(np.abs(energy*r/mu) >= np.sqrt(TINY)) & (a < 0.0)])
-  iorbit_type[(np.abs(energy*r/mu) >= np.sqrt(TINY)) & (a < 0.0) & (fac > TINY)] = hyperbola
-  iorbit_type[(np.abs(energy*r/mu) >= np.sqrt(TINY)) & (a < 0.0) & (fac <= TINY)] = parabola
-  iorbit_type[(np.abs(energy*r/mu) >= np.sqrt(TINY)) & (a >= 0.0)] = ellipse
-  
-  ell_mask = (iorbit_type == ellipse) & (fac > TINY)
-  fac[(iorbit_type == ellipse)] = 1.0 - h2/(mu[(iorbit_type == ellipse)]*a[(iorbit_type == ellipse)])
-  ecc[ell_mask] = np.sqrt(fac[ell_mask])
-  cape[ell_mask] = np.sqrt(fac[ell_mask])
-  face[ell_mask] = np.sqrt(fac[ell_mask])
-  cape[ell_mask & (face < -1.0)] = np.pi
-  cape[ell_mask & (face < 1.0)] = np.arccos(face[ell_mask & (face < 1.0)])
-  cape[ell_mask & (rdotv < 0.0)] = 2.*np.pi - cape[ell_mask & (rdotv < 0.0)]
-  fac[ell_mask] = 1.0 - ecc*np.cos(cape[ell_mask])
-  
-  test = np.arctan2(np.sqrt(1.0 - ecc*ecc)*np.sin(cape)/fac, (np.cos(cape) - ecc)/fac)
-  w[ell_mask] = test[ell_mask]
-  w[ell_mask & (w < 0.0)] = w[ell_mask & (w < 0.0)] + 2.*np.pi
-  cape[(iorbit_type == ellipse) & (fac <= TINY)] = u[(iorbit_type == ellipse) & (fac <= TINY)]
-  w[(iorbit_type == ellipse) & (fac <= TINY)] = u[(iorbit_type == ellipse) & (fac <= TINY)]
-  capm = cape - ecc*np.sin(cape)
-  
-  para = (iorbit_type==parabola)
-  a[para] = 0.5*h2[para]/mu[para]
-  ecc[para] = 1.0
-  w[para] = 0.0
-  fac[para] = 2.0*a[para]/r[para] - 1.0
-  w[para & (fac < -1.0)] = np.pi
-  w[para & (fac < 1.0)] = np.arccos(fac[para & (fac < 1.0)])
-  w[para & (rdotv < 0.0)] = 2.*np.pi - w[para & (rdotv < 0.0)]
-  capm[para] = np.tan(0.5*w[para])*(1.0 + np.tan(0.5*w[para])*np.tan(0.5*w[para])/3.0)
-  
-  hyper = (iorbit_type==hyperbola)
-  ecc[hyper] = np.sqrt(1.0 + fac[hyper])
-  tmpf[hyper] = (a[hyper] - r[hyper])/(a[hyper]*ecc[hyper])
-  tmpf[hyper & (tmpf < 1.0)] = 1.0
-  capf[hyper] = np.log(tmpf[hyper] + np.sqrt(tmpf[hyper]**2 - 1.0))
-  capf[hyper & (rdotv < 0.0)] = -capf[hyper & (rdotv < 0.0)]
-  fac[hyper] = ecc[hyper]*np.cosh(capf[hyper]) - 1.0
-  w[hyper] = np.arctan2(np.sqrt(ecc[hyper]*ecc[hyper] - 1.0)*np.sinh(capf[hyper])/fac[hyper], (ecc[hyper] - np.cosh(capf[hyper]))/fac[hyper])
-  w[hyper & (w < 0.0)] = w[hyper & (w < 0.0)] + 2.*np.pi
-  capm[hyper] = ecc[hyper]*np.sinh(capf[hyper]) - capf[hyper]
-  
-  omega = u - w
-  omega[omega < 0.0] = omega[omega < 0.0] + 2.*np.pi
-  return a, ecc, np.degrees(inc), np.degrees(omega), np.degrees(capom), np.degrees(capm)
+    return a, ecc, np.degrees(inc), np.degrees(omega), np.degrees(capom), np.degrees(capm)
 
 def tic():
     #Homemade version of matlab tic and toc functions
@@ -515,12 +500,12 @@ def bary(folder):
     tic()
     hdfs = glob.glob(folder+'*.hdf')
     #p1 = pd.read_hdf(folder+'PL','central')
-    s1mass = float(read_param(folder+'param.in'))
-    tot_mass = s1mass
-    for hdf in hdfs:
-        print hdf
-        p = pd.read_hdf(hdf,'central')
-        tot_mass += p.mass[0]
+    #s1mass = float(read_param(folder+'param.in'))
+    tot_mass = None
+    #for hdf in hdfs:
+    #    print hdf
+    #    p = pd.read_hdf(hdf,'central')
+    #    tot_mass += p.mass
     #print tot_mass
     
     xb = 0.0
@@ -533,12 +518,20 @@ def bary(folder):
     for hdf in hdfs:
         print hdf
         p = pd.read_hdf(hdf,'central')
-        xb += p.x*p.mass/tot_mass
-        yb += p.y*p.mass/tot_mass
-        zb += p.z*p.mass/tot_mass
-        ub += p.vx*p.mass/tot_mass
-        vb += p.vy*p.mass/tot_mass
-        wb += p.vz*p.mass/tot_mass
+        xb += p.x*p.mass
+        yb += p.y*p.mass
+        zb += p.z*p.mass
+        ub += p.vx*p.mass
+        vb += p.vy*p.mass
+        wb += p.vz*p.mass
+        tot_mass += p.mass
+    
+    xb = xb/tot_mass
+    yb = yb/tot_mass
+    zb = zb/tot_mass
+    ub = ub/tot_mass
+    vb = vb/tot_mass
+    wb = wb/tot_mass
     
     for hdf in hdfs:
         print hdf
