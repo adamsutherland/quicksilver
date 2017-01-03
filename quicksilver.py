@@ -395,15 +395,15 @@ def close(folder):
 def binary_bary(folder):
     tic()
     print 'Reading Secondary orbit'
+    s1 = pd.read_hdf(folder+'/STAR1.hdf','central')
     s2 = pd.read_hdf(folder+'/STAR2.hdf','central')
-    s1mass = float(read_param(folder+'/param.in'))
     print 'Calculating binary barycenter'
-    xb = s2.x*s2.mass[0]/(s1mass+s2.mass[0])
-    yb = s2.y*s2.mass[0]/(s1mass+s2.mass[0])
-    zb = s2.z*s2.mass[0]/(s1mass+s2.mass[0])
-    ub = s2.vx*s2.mass[0]/(s1mass+s2.mass[0])
-    vb = s2.vy*s2.mass[0]/(s1mass+s2.mass[0])
-    wb = s2.vz*s2.mass[0]/(s1mass+s2.mass[0])
+    xb = s2.x*s2.mass/(s1.mass+s2.mass)
+    yb = s2.y*s2.mass/(s1.mass+s2.mass)
+    zb = s2.z*s2.mass/(s1.mass+s2.mass)
+    ub = s2.vx*s2.mass/(s1.mass+s2.mass)
+    vb = s2.vy*s2.mass/(s1.mass+s2.mass)
+    wb = s2.vz*s2.mass/(s1.mass+s2.mass)
     hdfs = glob.glob(folder+'*.hdf')
     for hdf in hdfs:
         print hdf
@@ -418,15 +418,38 @@ def binary_bary(folder):
         pb['time'] = p.time
         pb['mass'] = p.mass
         #pb = elements(pb)
-        #xv2el_array(mu,x,y,z,vx,vy,vz)
+        pb['a'], pb['ecc'], pb['inc'], pb['omega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass+s2.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'binarybary')
     toc()
 
 def jacobi(folder):
     tic()
-    s2 = pd.read_hdf(folder+'STAR2.hdf','central')
-    m1 = float(read_param(folder+'param.in'))
-    mtot = s2.mass
+    
+    #hdfs = glob.glob(folder+'STAR1.hdf')
+    s = pd.read_hdf(folder+"STAR1.hdf",'central')
+    mtot = s.mass
+    mx = s.mass * s.x
+    my = s.mass * s.y
+    mz = s.mass * s.z
+    mu = s.mass * s.vx
+    mv = s.mass * s.vy
+    mw = s.mass * s.vz
+    
+    # write jacobi for central body
+    s1 = pd.DataFrame()
+    s1['x'] =  s.x*0.0
+    s1['y'] =  s.y*0.0
+    s1['z'] =  s.z*0.0
+    s1['vx'] = s.vx*0.0
+    s1['vy'] = s.vy*0.0
+    s1['vz'] = s.vz*0.0
+    s1['time'] = s.time
+    s1['mass'] = s.mass
+    s1['a'], s1['ecc'], s1['inc'], s1['omega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
+    s1.to_hdf(folder+"STAR1.hdf",'jacobi')
+
+    s2 = pd.read_hdf(folder+"STAR2.hdf",'central')
+    mtot += s.mass
     sj = pd.DataFrame()
     sj['x'] = s2.x
     sj['y'] = s2.y
@@ -436,6 +459,7 @@ def jacobi(folder):
     sj['vz'] = s2.vz
     sj['time'] = s2.time
     sj['mass'] = s2.mass
+    sj['a'], sj['ecc'], sj['inc'], sj['omega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
     sj.to_hdf(folder+'STAR2.hdf','jacobi')
     mx = s2.mass * s2.x
     my = s2.mass * s2.y
@@ -447,8 +471,7 @@ def jacobi(folder):
     hdfs = glob.glob(folder+'PL*.hdf')
     for hdf in hdfs:  # excluding secondary (and last planet)
         p = pd.read_hdf(hdf,'central')
-        temp = 1.0 / (mtot + m1)
-        mtot = mtot + p.mass
+        temp = 1.0 / mtot
         pj = pd.DataFrame()
         pj['x'] =  p.x  -  temp * mx
         pj['y'] =  p.y  -  temp * my
@@ -464,19 +487,10 @@ def jacobi(folder):
         mw = mw  +  p.mass * p.vz
         pj['time'] = p.time
         pj['mass'] = p.mass
+        pj['a'], pj['ecc'], pj['inc'], pj['omega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
+        mtot = mtot + p.mass        
         pj.to_hdf(hdf,'jacobi')
     
-    # write jacobi for central body
-    s1 = pd.DataFrame()
-    s1['x'] =  s2.x*0.0
-    s1['y'] =  s2.y*0.0
-    s1['z'] =  s2.z*0.0
-    s1['vx'] = s2.vx*0.0
-    s1['vy'] = s2.vy*0.0
-    s1['vz'] = s2.vz*0.0
-    s1['time'] = s2.time
-    s1['mass'] = read_param(folder+'/param.in')
-    s1.to_hdf(folder+"STAR1.hdf",'jacobi')
     
 #    if len(aeis) > 2: # yes the last one is really processed differently just to avoid the mx calculations
 #        p = read_aei(aeis[-2])
@@ -501,7 +515,7 @@ def bary(folder):
     hdfs = glob.glob(folder+'*.hdf')
     #p1 = pd.read_hdf(folder+'PL','central')
     #s1mass = float(read_param(folder+'param.in'))
-    tot_mass = None
+    tot_mass = 0.0
     #for hdf in hdfs:
     #    print hdf
     #    p = pd.read_hdf(hdf,'central')
@@ -545,7 +559,8 @@ def bary(folder):
         pb['vz'] = p.vz - wb
         pb['time'] = p.time
         pb['mass'] = p.mass
-        pb = elements(pb)
+        #pb = elements(pb)
+        pb['a'], pb['ecc'], pb['inc'], pb['omega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'totalbary')
         
     #print hdf
