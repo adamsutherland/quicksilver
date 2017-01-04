@@ -425,7 +425,7 @@ def binary_bary(folder):
 def jacobi(folder):
     tic()
     
-    #hdfs = glob.glob(folder+'STAR1.hdf')
+    hdfs = glob.glob(folder+'STAR*.hdf')
     s = pd.read_hdf(folder+"STAR1.hdf",'central')
     mtot = s.mass
     mx = s.mass * s.x
@@ -447,26 +447,27 @@ def jacobi(folder):
     s1['mass'] = s.mass
     s1['a'], s1['ecc'], s1['inc'], s1['omega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
     s1.to_hdf(folder+"STAR1.hdf",'jacobi')
-
-    s2 = pd.read_hdf(folder+"STAR2.hdf",'central')
-    mtot += s.mass
-    sj = pd.DataFrame()
-    sj['x'] = s2.x
-    sj['y'] = s2.y
-    sj['z'] = s2.z
-    sj['vx'] = s2.vx
-    sj['vy'] = s2.vy
-    sj['vz'] = s2.vz
-    sj['time'] = s2.time
-    sj['mass'] = s2.mass
-    sj['a'], sj['ecc'], sj['inc'], sj['omega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
-    sj.to_hdf(folder+'STAR2.hdf','jacobi')
-    mx = s2.mass * s2.x
-    my = s2.mass * s2.y
-    mz = s2.mass * s2.z
-    mu = s2.mass * s2.vx
-    mv = s2.mass * s2.vy
-    mw = s2.mass * s2.vz
+    
+    if len(hdfs) > 1:
+        s2 = pd.read_hdf(folder+"STAR2.hdf",'central')
+        sj = pd.DataFrame()
+        sj['x'] = s2.x
+        sj['y'] = s2.y
+        sj['z'] = s2.z
+        sj['vx'] = s2.vx
+        sj['vy'] = s2.vy
+        sj['vz'] = s2.vz
+        sj['time'] = s2.time
+        sj['mass'] = s2.mass
+        sj['a'], sj['ecc'], sj['inc'], sj['omega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
+        sj.to_hdf(folder+'STAR2.hdf','jacobi')
+        mx = s2.mass * s2.x
+        my = s2.mass * s2.y
+        mz = s2.mass * s2.z
+        mu = s2.mass * s2.vx
+        mv = s2.mass * s2.vy
+        mw = s2.mass * s2.vz
+        mtot += s.mass
     
     hdfs = glob.glob(folder+'PL*.hdf')
     for hdf in hdfs:  # excluding secondary (and last planet)
