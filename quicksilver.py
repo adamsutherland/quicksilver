@@ -471,6 +471,7 @@ def jacobi(folder):
         mtot += s2.mass
     
     hdfs = glob.glob(folder+'PL*.hdf')
+    hdfs.sort()
     for hdf in hdfs:  # excluding secondary (and last planet)
         print hdf
         p = pd.read_hdf(hdf,'central')
