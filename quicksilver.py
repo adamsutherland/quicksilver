@@ -449,6 +449,7 @@ def jacobi(folder):
     s1.to_hdf(folder+"STAR1.hdf",'jacobi')
     
     if len(hdfs) > 1:
+        print 'Binary present'
         s2 = pd.read_hdf(folder+"STAR2.hdf",'central')
         sj = pd.DataFrame()
         sj['x'] = s2.x
@@ -461,16 +462,17 @@ def jacobi(folder):
         sj['mass'] = s2.mass
         sj['a'], sj['ecc'], sj['inc'], sj['omega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
         sj.to_hdf(folder+'STAR2.hdf','jacobi')
-        mx = s2.mass * s2.x
-        my = s2.mass * s2.y
-        mz = s2.mass * s2.z
-        mu = s2.mass * s2.vx
-        mv = s2.mass * s2.vy
-        mw = s2.mass * s2.vz
-        mtot += s.mass
+        mx = mx + s2.mass * s2.x
+        my = my + s2.mass * s2.y
+        mz = mz + s2.mass * s2.z
+        mu = mu + s2.mass * s2.vx
+        mv = mv + s2.mass * s2.vy
+        mw = mw + s2.mass * s2.vz
+        mtot += s2.mass
     
     hdfs = glob.glob(folder+'PL*.hdf')
     for hdf in hdfs:  # excluding secondary (and last planet)
+        print hdf
         p = pd.read_hdf(hdf,'central')
         temp = 1.0 / mtot
         pj = pd.DataFrame()
