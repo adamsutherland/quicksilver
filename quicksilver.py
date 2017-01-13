@@ -96,6 +96,7 @@ def solve(mp, ms, d, a,n):
         a=a-10**-x
     return a
 
+    d12 =  z2 + z3*ci
 def elements(df,m):
     #tic()
     p1el = np.zeros((len(df),6))
