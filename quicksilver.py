@@ -44,6 +44,7 @@ def planet_orbit(mp, ms, d, a, e, theta):
     return x, y, z, vx, vy, vz
 
 def mod_planet_orbit(mp, ms, d, a, e, theta):
+    #planet starts out at pericenter
     theta = np.deg2rad(theta)
     v=mod_mean_mo(mp,ms,d,a)*a*((1-e)/(1+e))**.5
     vx=-np.sin(theta)*v
@@ -96,7 +97,180 @@ def solve(mp, ms, d, a,n):
         a=a-10**-x
     return a
 
+def MCO_EL2X(mu,a,e,i,p,n,l):
+    # Calculates Cartesian coordinates and velocities given Keplerian orbital
+    # elements (for elliptical, parabolic or hyperbolic orbits).
+    #
+    # Based on a routine from Levison and Duncan's SWIFT integrator.
+    #
+    #  mu = grav const * (central + secondary mass)
+    #  q = perihelion distance
+    #  e = eccentricity
+    #  i = inclination                 )
+    #  p = longitude of perihelion !!! )   in
+    #  n = longitude of ascending node ) radians
+    #  l = mean anomaly                )
+    #
+    #  x,y,z = Cartesian positions  ( units the same as a )
+    #  u,v,w =     "     velocities ( units the same as sqrt(mu/a) )
+
+    # Change from longitude of perihelion to argument of perihelion
+    g = p - n
+    #
+    # Rotation factors
+    si, ci = np.sin(i), np.cos(i)
+    sg, cg = np.sin(g), np.cos(g)
+    sn, cn = np.sin(n), np.cos(n)
+    z1 = cg * cn
+    z2 = cg * sn
+    z3 = sg * cn
+    z4 = sg * sn
+    d11 =  z1 - z4*ci
     d12 =  z2 + z3*ci
+    d13 = sg * si
+    d21 = -z3 - z2*ci
+    d22 = -z4 + z1*ci
+    d23 = cg * si
+    #
+    # Semi-major axis
+          #a = q / (1.0 - e)
+    #
+    # Ellipse
+    romes = np.sqrt(1.0 - e*e)
+    temp = MCO_KEP(e,l)
+    se, ce = np.sin(temp), np.cos(temp)
+    z1 = a * (ce - e)
+    z2 = a * romes * se
+    temp = np.sqrt(mu/a) / (1.0 - e*ce)
+    z3 = -se * temp
+    z4 = romes * ce * temp
+
+    x = d11*z1 + d21*z2
+    y = d12*z1 + d22*z2
+    z = d13*z1 + d23*z2
+    u = d11*z3 + d21*z4
+    v = d12*z3 + d22*z4
+    w = d13*z3 + d23*z4
+
+    return x,y,z,u,v,w
+def MCO_KEP(e,oldl):
+    #Solves Kepler's equation for eccentricities less than one.
+    #Algorithm from A. Nijenhuis (1991) Cel. Mech. Dyn. Astron. 51, 319-330.
+    #e = eccentricity
+    #l = mean anomaly      (radians)
+    #u = eccentric anomaly (   "   )
+
+    pi = np.pi
+    twopi = 2.0 * pi
+    piby2 = 0.5 * pi
+
+    #Reduce mean anomaly to lie in the range 0 < l < pi
+    if (oldl >= 0):
+        l = oldl % twopi
+    else:
+        l = oldl % twopi + twopi
+    sign = 1.0
+    if (l > pi) :
+        l = twopi - l
+        sign = -1.0
+
+    ome = 1.0 - e
+
+    if (l >= .45) or (e <  .55) :
+
+    # Regions A,B or C in Nijenhuis
+    # -----------------------------
+    #
+    # Rough starting value for eccentric anomaly
+        if (l < ome) :
+            u1 = ome
+        else:
+            if (l > (pi-1.0-e)) :
+                u1 = (l+e*pi)/(1.0+e)
+            else:
+                u1 = l + e
+
+    # Improved value using Halley's method
+        flag = u1 > piby2
+        if (flag) :
+            x = pi - u1
+        else:
+            x = u1
+        
+        x2 = x*x
+        sn = x*(1.0 + x2*(-.16605 + x2*.00761) )
+        dsn = 1.0 + x2*(-.49815 + x2*.03805)
+        if (flag): dsn = -dsn
+        f2 = e*sn
+        f0 = u1 - f2 - l
+        f1 = 1.0 - e*dsn
+        u2 = u1 - f0/(f1 - .50*f0*f2/f1)
+    else:
+
+    # Region D in Nijenhuis
+    # ---------------------
+    #
+    # Rough starting value for eccentric anomaly
+        z1 = 4.0*e + .50
+        p = ome / z1
+        q = .50 * l / z1
+        p2 = p*p
+        z2 = np.exp( np.log( np.sqrt( p2*p + q*q ) + q )/1.5 )
+        u1 = 2.0*q / ( z2 + p + p2/z2 )
+
+    # Improved value using Newton's method
+        z2 = u1*u1
+        z3 = z2*z2
+        u2 = u1 - .0750*u1*z3 / (ome + z1*z2 + .3750*z3)
+        u2 = l + e*u2*( 3.0 - 4.0*u2*u2 )
+
+    # Accurate value using 3rd-order version of Newton's method
+    # N.B. Keep cos(u2) rather than sqrt( 1-sin^2(u2) ) to maintain accuracy!
+
+    # First get accurate values for u2 - sin(u2) and 1 - cos(u2)
+    bigg = (u2 > piby2)
+    if (bigg) :
+        z3 = pi - u2
+    else:
+        z3 = u2
+      
+    big = (z3 > (.50*piby2))
+    if (big) :
+        x = piby2 - z3
+    else:
+        x = z3
+
+    x2 = x*x
+    ss = 1.0
+    cc = 1.0
+
+    ss = x*x2/6.*(1. - x2/20.*(1. - x2/42.*(1. - x2/72.*(1. - x2/110.*(1. - x2/156.*(1. - x2/210.*(1. - x2/272.)))))))
+    cc = x2/2.*(1. -x2/12.*(1. -x2/30.*(1. -x2/56.*(1. -x2/90.*(1. -x2/132.*(1.-x2/182.*(1.-x2/240.*(1.-x2/306.))))))))
+
+    if (big) :
+        z1 = cc + z3 - 1.0
+        z2 = ss + z3 + 1.0 - piby2
+    else:
+        z1 = ss
+        z2 = cc
+      
+
+    if (bigg) :
+        z1 = 2.0*u2 + z1 - pi
+        z2 = 2.0 - z2
+      
+
+    f0 = l - u2*ome - e*z1
+    f1 = ome + e*z2
+    f2 = .50*e*(u2-z1)
+    f3 = e/6.0*(1.0-z2)
+    z1 = f0/f1
+    z2 = f0/(f2*z1+f1)
+    mco_kep = sign*( u2 + f0/((f3*z1+f2)*z2+f1) )
+    
+    return mco_kep
+    
+
 def elements(df,m):
     #tic()
     p1el = np.zeros((len(df),6))
@@ -419,7 +593,7 @@ def binary_bary(folder):
         pb['time'] = p.time
         pb['mass'] = p.mass
         #pb = elements(pb)
-        pb['a'], pb['ecc'], pb['inc'], pb['omega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass+s2.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
+        pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass+s2.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'binarybary')
     toc()
 
@@ -446,7 +620,7 @@ def jacobi(folder):
     s1['vz'] = s.vz*0.0
     s1['time'] = s.time
     s1['mass'] = s.mass
-    s1['a'], s1['ecc'], s1['inc'], s1['omega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
+    s1['a'], s1['ecc'], s1['inc'], s1['pomega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
     s1.to_hdf(folder+"STAR1.hdf",'jacobi')
     
     if len(hdfs) > 1:
@@ -461,7 +635,7 @@ def jacobi(folder):
         sj['vz'] = s2.vz
         sj['time'] = s2.time
         sj['mass'] = s2.mass
-        sj['a'], sj['ecc'], sj['inc'], sj['omega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
+        sj['a'], sj['ecc'], sj['inc'], sj['pomega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
         sj.to_hdf(folder+'STAR2.hdf','jacobi')
         mx = mx + s2.mass * s2.x
         my = my + s2.mass * s2.y
@@ -492,7 +666,7 @@ def jacobi(folder):
         mw = mw  +  p.mass * p.vz
         pj['time'] = p.time
         pj['mass'] = p.mass
-        pj['a'], pj['ecc'], pj['inc'], pj['omega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
+        pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
         mtot = mtot + p.mass        
         pj.to_hdf(hdf,'jacobi')
     
@@ -565,7 +739,7 @@ def bary(folder):
         pb['time'] = p.time
         pb['mass'] = p.mass
         #pb = elements(pb)
-        pb['a'], pb['ecc'], pb['inc'], pb['omega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
+        pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'totalbary')
         
     #print hdf
