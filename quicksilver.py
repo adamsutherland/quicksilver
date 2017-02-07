@@ -494,6 +494,50 @@ def xv2el_array_bound(mu,x,y,z,vx,vy,vz):
 
     return a, ecc, np.degrees(inc), np.degrees(omega), np.degrees(capom), np.degrees(capm)
 
+def mod_elements(s1,s2,df):
+    theta = np.deg2rad(-df.capom)
+    x1 = df.x * np.cos(theta) - df.y *np.sin(theta)
+    y1 = df.x * np.sin(theta) + df.y *np.cos(theta)
+    z1 = df.z
+
+    beta = np.deg2rad(-df.inc)
+    df['x0'] = x1
+    df['y0'] = y1 * np.cos(beta) - z1 *np.sin(beta)
+    df['z0'] = y1 * np.sin(beta) + z1 *np.cos(beta)
+    
+    df['r'] = (df.x**2 + df.y**2 + df.z**2)**.5
+    df['r0'] = (df['x0']**2 + df['y0']**2 + df['z0']**2)**.5
+    windo = 100
+    mask = (df['r0'] == df['r0'].rolling(windo, center = True).min())
+
+
+    df['w'] = np.arctan2(df['y0'],df['x0'])
+    df['w'] = np.degrees(df['w'])
+    df['w'] = df['w'] % 360
+    df['geo_w'] = pd.Series.copy(df['w'])
+    df['geo_w'][~mask] = np.nan
+    df['geo_w'] = df['geo_w'].interpolate(method='linear')
+    
+    df['geo_a'] = (df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())/2.0
+    
+    num=len(df.time)
+    M = np.zeros(num)
+    tau = 0.0
+    w_tau = 0.0
+    year = period(.5,.5,1.0)
+    for n in xrange(num):
+        if mask[n]: 
+            M[n] = 0
+            tau = df.time[n]
+            w_tau = df['geo_w'][n]
+        else:
+            n0 = mod_mean_mo(s1.mass[n],s2.mass[n],((s1.x[n]-s2.x[n])**2+(s1.y[n]-s2.y[n])**2+(s1.z[n]-s2.z[n])**2)**.5,df['r'][n])
+            M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
+    df['mod_m'] = M
+    df['true_anom'] = (df['w']-df['geo_w'])%360
+    
+    return df
+
 def tic():
     #Homemade version of matlab tic and toc functions
     import time
