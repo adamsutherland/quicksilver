@@ -507,7 +507,10 @@ def mod_elements(s1,s2,df):
     
     df['r'] = (df.x**2 + df.y**2 + df.z**2)**.5
     df['r0'] = (df['x0']**2 + df['y0']**2 + df['z0']**2)**.5
-    windo = 100
+    windo = period(s1.mass[0],s2.mass[0],df.a.median())/period(1,0,1)*1.25
+    #print windo
+    windo = int(windo/df.time[1])
+    #print windo
     mask = (df['r0'] == df['r0'].rolling(windo, center = True).min())
 
 
@@ -531,12 +534,14 @@ def mod_elements(s1,s2,df):
             tau = df.time[n]
             w_tau = df['geo_w'][n]
         else:
-            n0 = mod_mean_mo(s1.mass[n],s2.mass[n],((s1.x[n]-s2.x[n])**2+(s1.y[n]-s2.y[n])**2+(s1.z[n]-s2.z[n])**2)**.5,df['r'][n])
+            n0 = mod_mean_mo(s1.mass[n],s2.mass[n],((s1.x[n]-s2.x[n])**2+(s1.y[n]-s2.y[n])**2+(s1.z[n]-s2.z[n])**2)**.5,df['geo_a'][n])
             M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
-    df['mod_m'] = M
+    df['mod_M'] = M
     df['true_anom'] = (df['w']-df['geo_w'])%360
     
     return df
+
+    
 
 def tic():
     #Homemade version of matlab tic and toc functions
@@ -679,6 +684,7 @@ def jacobi(folder):
         sj['vz'] = s2.vz
         sj['time'] = s2.time
         sj['mass'] = s2.mass
+        mtot += s2.mass
         sj['a'], sj['ecc'], sj['inc'], sj['pomega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
         sj.to_hdf(folder+'STAR2.hdf','jacobi')
         mx = mx + s2.mass * s2.x
@@ -687,7 +693,7 @@ def jacobi(folder):
         mu = mu + s2.mass * s2.vx
         mv = mv + s2.mass * s2.vy
         mw = mw + s2.mass * s2.vz
-        mtot += s2.mass
+        
     
     hdfs = glob.glob(folder+'PL*.hdf')
     hdfs.sort()
@@ -710,8 +716,8 @@ def jacobi(folder):
         mw = mw  +  p.mass * p.vz
         pj['time'] = p.time
         pj['mass'] = p.mass
+        mtot = mtot + p.mass
         pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
-        mtot = mtot + p.mass        
         pj.to_hdf(hdf,'jacobi')
     
     
