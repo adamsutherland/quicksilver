@@ -75,8 +75,11 @@ def period(mp, ms, a): # in days
     T = np.pi*2*(a**3/(G*(mp+ms)))**.5
     return T
 
-def mod_period(mp,ms,d,a):
-    return (mod_mean_mo(mp,ms,d,a)**-1)*2*np.pi
+def mod_period(mp,ms,d,a,years=False):
+    p = (mod_mean_mo(mp,ms,d,a)**-1)*2*np.pi
+    if years:
+        p = p/period(1.0,0.0,1.0)
+    return p
 
 def sma(mp,ms,P):
     a = (G*(mp+ms)*P**2/(4*np.pi**2))**(1./3)
@@ -290,10 +293,11 @@ def cal_elements(folder,coord):
     # central body, binary barycenter, jacobi, total barycenter
     tic()
     hdfs = glob.glob(folder+'/*.hdf')
-    central_mass = read_param(folder+'/param.in')
+    primary = pd.read_hdf(folder+'/STAR1.hdf','central')
+    central_mass = primary.mass
     if coord == 'binarybary':
         sec = pd.read_hdf(folder+'/STAR2.hdf','binarybary')
-        secondary_mass = sec.mass[0]
+        secondary_mass = sec.mass
         central_mass = central_mass + secondary_mass 
     for hdf in hdfs:
         df = pd.read_hdf(hdf,coord)
@@ -519,10 +523,21 @@ def mod_elements(s1,s2,df):
     df['w'] = df['w'] % 360
     df['geo_w'] = pd.Series.copy(df['w'])
     df['geo_w'][~mask] = np.nan
+    www = df['geo_w'][mask]
+    wt = df.time[mask]
+    mask2 = www-np.roll(www,-1) > 300
+    mask3 = www-np.roll(www,-1) < -300
+    wt1 = wt[mask2]
+    wt2 = wt[mask3]
+    for n in xrange(len(wt1)):#fixes linear interpolation problems with angles
+        df['geo_w'][df.time > wt1.values[n]] = df['geo_w'][df.time > wt1.values[n]]+360
+    for n in xrange(len(wt2)):
+        df['geo_w'][df.time > wt2.values[n]] = df['geo_w'][df.time > wt2.values[n]]-360
+
     df['geo_w'] = df['geo_w'].interpolate(method='linear')
-    
+    df['geo_w'] = df['geo_w'] % 360
     df['geo_a'] = (df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())/2.0
-    
+        
     num=len(df.time)
     M = np.zeros(num)
     tau = 0.0
@@ -536,7 +551,7 @@ def mod_elements(s1,s2,df):
         else:
             n0 = mod_mean_mo(s1.mass[n],s2.mass[n],((s1.x[n]-s2.x[n])**2+(s1.y[n]-s2.y[n])**2+(s1.z[n]-s2.z[n])**2)**.5,df['geo_a'][n])
             M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
-    df['mod_M'] = M
+    df['mod_M'] = M % 360
     df['true_anom'] = (df['w']-df['geo_w'])%360
     
     return df
@@ -616,7 +631,7 @@ def close(folder):
         p = read_clo(clo)
         p.to_hdf(clo[:-4]+'.hdf','close')
 
-def binary_bary(folder):
+def binary_bary(folder, elements = True):
     tic()
     print 'Reading Secondary orbit'
     s1 = pd.read_hdf(folder+'/STAR1.hdf','central')
@@ -642,11 +657,12 @@ def binary_bary(folder):
         pb['time'] = p.time
         pb['mass'] = p.mass
         #pb = elements(pb)
-        pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass+s2.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
+        if elements:
+            pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass+s2.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'binarybary')
     toc()
 
-def jacobi(folder):
+def jacobi(folder, elements = True):
     tic()
     
     hdfs = glob.glob(folder+'STAR*.hdf')
@@ -669,7 +685,8 @@ def jacobi(folder):
     s1['vz'] = s.vz*0.0
     s1['time'] = s.time
     s1['mass'] = s.mass
-    s1['a'], s1['ecc'], s1['inc'], s1['pomega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
+    if elements:
+        s1['a'], s1['ecc'], s1['inc'], s1['pomega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
     s1.to_hdf(folder+"STAR1.hdf",'jacobi')
     
     if len(hdfs) > 1:
@@ -685,7 +702,8 @@ def jacobi(folder):
         sj['time'] = s2.time
         sj['mass'] = s2.mass
         mtot += s2.mass
-        sj['a'], sj['ecc'], sj['inc'], sj['pomega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
+        if elements:
+            sj['a'], sj['ecc'], sj['inc'], sj['pomega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
         sj.to_hdf(folder+'STAR2.hdf','jacobi')
         mx = mx + s2.mass * s2.x
         my = my + s2.mass * s2.y
@@ -717,7 +735,8 @@ def jacobi(folder):
         pj['time'] = p.time
         pj['mass'] = p.mass
         mtot = mtot + p.mass
-        pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
+        if elements:
+            pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
         pj.to_hdf(hdf,'jacobi')
     
     
@@ -739,7 +758,7 @@ def jacobi(folder):
         
     toc()
 
-def bary(folder):
+def bary(folder, elements=True):
     tic()
     hdfs = glob.glob(folder+'*.hdf')
     #p1 = pd.read_hdf(folder+'PL','central')
@@ -789,7 +808,8 @@ def bary(folder):
         pb['time'] = p.time
         pb['mass'] = p.mass
         #pb = elements(pb)
-        pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
+        if elements:
+            pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'totalbary')
         
     #print hdf
