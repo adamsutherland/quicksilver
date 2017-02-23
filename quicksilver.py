@@ -284,7 +284,7 @@ def elements(df,m):
         #    print prog, '%'
         #    prog = prog+5
     #toc()
-    el = pd.DataFrame(p1el,columns=['a', 'ecc','i', 'pomega','capom','capm'], index=df.index)
+    el = pd.DataFrame(p1el,columns=['a', 'ecc','inc', 'pomega','capom','capm'], index=df.index)
     df_total = pd.concat([df, el], axis=1)
     return df_total
 
@@ -631,7 +631,7 @@ def close(folder):
         p = read_clo(clo)
         p.to_hdf(clo[:-4]+'.hdf','close')
 
-def binary_bary(folder, elements = True):
+def binary_bary(folder, el = True, unbound=False):
     tic()
     print 'Reading Secondary orbit'
     s1 = pd.read_hdf(folder+'/STAR1.hdf','central')
@@ -657,12 +657,15 @@ def binary_bary(folder, elements = True):
         pb['time'] = p.time
         pb['mass'] = p.mass
         #pb = elements(pb)
-        if elements:
-            pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass+s2.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
+        if el:
+            if unbound:
+                pb = elements(pb,s1.mass+s2.mass)
+            else:
+                pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass+s2.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'binarybary')
     toc()
 
-def jacobi(folder, elements = True):
+def jacobi(folder, el = True, unbound=False):
     tic()
     
     hdfs = glob.glob(folder+'STAR*.hdf')
@@ -685,8 +688,11 @@ def jacobi(folder, elements = True):
     s1['vz'] = s.vz*0.0
     s1['time'] = s.time
     s1['mass'] = s.mass
-    if elements:
-        s1['a'], s1['ecc'], s1['inc'], s1['pomega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
+    if el:
+        if unbound:
+            s1 = elements(s1,mtot)
+        else:
+            s1['a'], s1['ecc'], s1['inc'], s1['pomega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
     s1.to_hdf(folder+"STAR1.hdf",'jacobi')
     
     if len(hdfs) > 1:
@@ -702,8 +708,11 @@ def jacobi(folder, elements = True):
         sj['time'] = s2.time
         sj['mass'] = s2.mass
         mtot += s2.mass
-        if elements:
-            sj['a'], sj['ecc'], sj['inc'], sj['pomega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
+        if el:
+            if unbound:
+                sj = elements(sj,mtot)
+            else:
+                sj['a'], sj['ecc'], sj['inc'], sj['pomega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
         sj.to_hdf(folder+'STAR2.hdf','jacobi')
         mx = mx + s2.mass * s2.x
         my = my + s2.mass * s2.y
@@ -735,8 +744,11 @@ def jacobi(folder, elements = True):
         pj['time'] = p.time
         pj['mass'] = p.mass
         mtot = mtot + p.mass
-        if elements:
-            pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
+        if el:
+            if unbound:
+                pj = elements(pj,mtot)
+            else:
+                pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
         pj.to_hdf(hdf,'jacobi')
     
     
@@ -758,7 +770,7 @@ def jacobi(folder, elements = True):
         
     toc()
 
-def bary(folder, elements=True):
+def bary(folder, el=True, unbound=False):
     tic()
     hdfs = glob.glob(folder+'*.hdf')
     #p1 = pd.read_hdf(folder+'PL','central')
@@ -808,8 +820,11 @@ def bary(folder, elements=True):
         pb['time'] = p.time
         pb['mass'] = p.mass
         #pb = elements(pb)
-        if elements:
-            pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
+        if el:
+            if unbound:
+                pb = elements(pb,tot_mass)
+            else:
+                pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'totalbary')
         
     #print hdf
