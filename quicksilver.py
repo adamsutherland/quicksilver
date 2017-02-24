@@ -750,6 +750,35 @@ def jacobi(folder, el = True, unbound=False):
             else:
                 pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
         pj.to_hdf(hdf,'jacobi')
+
+    hdfs = glob.glob(folder+'SM*.hdf')
+    hdfs.sort()
+    for hdf in hdfs:  # excluding secondary (and last planet)
+        print hdf
+        p = pd.read_hdf(hdf,'central')
+        temp = 1.0 / mtot
+        pj = pd.DataFrame()
+        pj['x'] =  p.x  -  temp * mx
+        pj['y'] =  p.y  -  temp * my
+        pj['z'] =  p.z  -  temp * mz
+        pj['vx'] = p.vx  -  temp * mu
+        pj['vy'] = p.vy  -  temp * mv
+        pj['vz'] = p.vz  -  temp * mw
+        mx = mx  +  p.mass * p.x
+        my = my  +  p.mass * p.y
+        mz = mz  +  p.mass * p.z
+        mu = mu  +  p.mass * p.vx
+        mv = mv  +  p.mass * p.vy
+        mw = mw  +  p.mass * p.vz
+        pj['time'] = p.time
+        pj['mass'] = p.mass
+        #mtot = mtot + p.mass
+        if el:
+            if unbound:
+                pj = elements(pj,mtot)
+            else:
+                pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
+        pj.to_hdf(hdf,'jacobi')
     
     
 #    if len(aeis) > 2: # yes the last one is really processed differently just to avoid the mx calculations
