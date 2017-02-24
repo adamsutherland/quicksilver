@@ -48,11 +48,11 @@ Adding planets is as easy as
 
 
 ```python
-run.add_big(0.001,3.0) # adds a planet of mass 0.001 and semimajor axis of 3
+run.add_big(0.001,3.0) # adds a planet of 0.001 Solar masses and semimajor axis of 3 AU
 run.add_big(0.001, 4, e=.2, kep_or_mod="Kep", name="SuperEarth", theta=30)
 run.add_small(7.0)
 ```
-Be sure to add the bodies only after you have changed all the settings since the planet initial velocities are calculated during the when the function is called. All planets are currently coplanar but with plans to include inclined orbits in the future. The default intial velocity is given by the modified mean motion according to [Lee & Peale 2006](http://adsabs.harvard.edu/abs/2006Icar..184..573L) but you can specify Keplerian intial velocity if desired. Eccentric orbits are placed at apocenter. Theta is the offset from the planets being aligned with the secondary in degrees. The default name is PL# where number is nth big body added. Similar with small bodies but with the name SM#.
+Be sure to add the bodies only after you have changed all the settings since the planet initial velocities are calculated during the when the function is called. All planets are currently coplanar but with plans to include inclined orbits in the future. The default intial velocity is given by the modified mean motion according to [Lee & Peale 2006](http://adsabs.harvard.edu/abs/2006Icar..184..573L) but you can specify Keplerian intial velocity if desired. Eccentric orbits are placed at apocenter. Theta is the offset from the planets being aligned with the secondary in degrees. The default name is PL# where number is nth big body added. Similar with small bodies but with the name SM#. The ```jacobi()``` function requires the planets follow the default naming configuration.
 
 To make the files
 ```python
@@ -61,8 +61,8 @@ run.build()
 
 Running Mercury
 -----
-Remove .out, .dmp, .aie, .clo, .hdf files from older runs before running. Remember to compile the code before each run. Using ```gfortran -o mercury6 mercury6_ras.for``` for example.
-Then run mercury6, element6, and close6 optionally.
+Remove .out, .dmp, .aie, .clo, .hdf files from older runs before running. Remember to compile the code before each run, using ```gfortran -o mercury6 mercury6_ras.for``` for example.
+Then run ```mercury6```, ```element6```, and ```close6``` optionally.
  
 I would like to be able to star the runs from python but executing shell command from python is buggy and this way you can have more flexibility with how you start you runs, such as choosing what cores to run Mercury on.
 
@@ -76,11 +76,8 @@ binarybary(folder) # converts to binary barycentric coordinates
 jacobi(folder) # coverts to Jacobi coordinates
 bary(folder) # converts to absolute barycentric coordinates
 ```
-You can calculate the orbit elements for each coordinate system individually, this isn’t automatically done since it is a computationally intensive process
-```
-cal_elements(folder,'coordinate system')
-```
-Where 'coordinate system' is 'central', 'bary', 'jacobi', or 'totalbary'.
+The oribtal elements are automatically calculated using the above functions using ```xv2el_array_bound()``` which is a fast version of calculating bound orbital elements. Calculate unbound orbital elements using ```bary(folder, unbound=True)``` or suppress the calculation using ```bary(folder, el=False)```.
+You can calculate the orbit elements for binary barycentric or central body coordinates  individually ```cal_elements(folder,'coordinate system')```, where 'coordinate system' is 'central' or 'binarybary'.
 
 It is possible to read the results of info.out and determine the fate of each body.
 ```
@@ -95,8 +92,8 @@ p_fate = pd.read_hdf('path_to_hdf','fate')
 and the information is available as
 ```
 print p.x[0]
-p.pomega.plot()
-print p_fate.fate.values
+p.pomega.plot() # pandas has built in plotting
+print p_fate.values
 ```
 
 
