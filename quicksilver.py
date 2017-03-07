@@ -6,7 +6,7 @@ Orbit plotting
 """
 
 import pandas as pd
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import glob as glob
 #import tables
@@ -91,6 +91,27 @@ def dist_resonance(mp, ms, d, r):
 
 def solve(mp, ms, d, a,n):
     n1 = mod_mean_mo(mp,ms,d,a)
+    if n>1:
+        a=int(a)
+        for x in xrange(16):
+            r=1
+            while (r < n):
+                a = a + 10**-x
+                r =  n1/mod_mean_mo(mp,ms,d,a)
+            a=a-10**-x
+        return a
+    if n<1:
+        a=0.0
+        for x in xrange(16):
+            r=0
+            while (r < n):
+                a = a + 10**-x
+                r = n1/mod_mean_mo(mp,ms,d,a)
+            a=a-10**-x
+        return a
+
+def solve_with_second(mp, ms, d, a,n):
+    n1 = mean_mo(mp,ms,a)
     a=int(a)
     for x in xrange(16):
         r=1
@@ -525,8 +546,8 @@ def mod_elements(s1,s2,df):
     df['geo_w'][~mask] = np.nan
     www = df['geo_w'][mask]
     wt = df.time[mask]
-    mask2 = www-np.roll(www,-1) > 300
-    mask3 = www-np.roll(www,-1) < -300
+    mask2 = www-np.roll(www,-1) > 280
+    mask3 = www-np.roll(www,-1) < -280
     wt1 = wt[mask2]
     wt2 = wt[mask3]
     for n in xrange(len(wt1)):#fixes linear interpolation problems with angles
@@ -537,13 +558,18 @@ def mod_elements(s1,s2,df):
     df['geo_w'] = df['geo_w'].interpolate(method='linear')
     df['geo_w'] = df['geo_w'] % 360
     df['geo_a'] = (df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())/2.0
+    df['geo_e'] = (df['r0'].rolling(2*windo, center = True).max() - df['r0'].rolling(2*windo, center = True).min())/(df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())
         
     num=len(df.time)
     M = np.zeros(num)
     tau = 0.0
     w_tau = 0.0
     year = period(.5,.5,1.0)
+    count = 0.05
     for n in xrange(num):
+        if n/float(num) > count:
+            print round(float(n)/num*100),'%'
+            count +=0.05 
         if mask[n]: 
             M[n] = 0
             tau = df.time[n]
@@ -895,6 +921,7 @@ class quick:
         
         self.secondary_mass = .5
         self.binary_separation = .5
+        self.binary_ecc = 0.0
 
 
         self.planet_num = 0
@@ -949,15 +976,16 @@ class quick:
         self.collect_param()
         self.collect_merc()
         settings = np.append(self.param,self.merc_in)
-        settings = np.append(settings,[self.secondary_mass,self.binary_separation])
+        settings = np.append(settings,[self.secondary_mass,self.binary_separation,self.binary_ecc])
         np.save(name,settings)
     
     def load_settings(self,name):
         settings = np.load(name+'.npy')
         self.param = settings[:23]
-        self.merc_in = settings[23:-2]
-        self.secondary_mass = float(settings[-2])
-        self.binary_separation = float(settings[-1])
+        self.merc_in = settings[23:-3]
+        self.secondary_mass = float(settings[-3])
+        self.binary_separation = float(settings[-2])
+        self.binary_ecc = float(settings[-1])
         self.param_set()
         self.merc_set()
     
@@ -1067,8 +1095,8 @@ class quick:
         for line in lines[:6]:
             b.write(line+'\n')
         b.write(" STAR2 m="+str(self.secondary_mass)+'\n')
-        b.write(' '+str(self.binary_separation)+" 0.0 0.0"+'\n')
-        b.write(" 0.0 "+str(secondary_orbit(self.primary_mass, self.secondary_mass, self.binary_separation))+" 0.0"+'\n')
+        b.write(' '+str(self.binary_separation*(1+self.binary_ecc))+" 0.0 0.0"+'\n')#start at binary apocenter
+        b.write(" 0.0 "+str(secondary_orbit(self.primary_mass, self.secondary_mass, self.binary_separation)*((1-self.binary_ecc)/(1+self.binary_ecc))**.5)+" 0.0"+'\n')
         b.write(" 0.0 0.0 0.0"+'\n')
         for planet in xrange(self.planet_num):
             #b.write(self.planet_data[planet])
@@ -1122,3 +1150,54 @@ class quick:
         #os.system(str1)
         #op.process_all_binary(self.directory)
         
+# Plotting
+def plot_elements(array_df, same_plot=False):
+    n = len(array_df)
+    if same_plot: n=1
+    plt.figure(figsize=(12,2.5*n))
+    m=0
+    for df in array_df:
+        plt.subplot(n,6,1+m)
+        plt.plot(df.a)
+        plt.subplot(n,6,2+m)
+        plt.plot(df.ecc)
+        plt.ylim([0,1])
+        plt.subplot(n,6,3+m)
+        plt.plot(df.inc)
+        plt.ylim([0,360])
+        plt.subplot(n,6,4+m)
+        plt.plot(df.capm)
+        plt.ylim([0,360])
+        plt.subplot(n,6,5+m)
+        plt.plot(df.capom)
+        plt.ylim([0,360])
+        plt.subplot(n,6,6+m)
+        plt.plot(df.pomega)
+        plt.ylim([0,360])
+        if not same_plot:m += 6
+
+def plot_mod_elements(array_df, same_plot=False):
+    n = len(array_df)
+    if same_plot: n=1
+    plt.figure(figsize=(12,2.5*n))
+    m=0
+    for df in array_df:
+        plt.subplot(n,6,1+m)
+        plt.plot(df.geo_a)
+        plt.ylim([0,df.geo_a.max()*1.05])
+        plt.subplot(n,6,2+m)
+        plt.plot(df.geo_e)
+        plt.ylim([0,1])
+        plt.subplot(n,6,3+m)
+        plt.plot(df.inc)
+        plt.ylim([0,360])
+        plt.subplot(n,6,4+m)
+        plt.plot(df.mod_M)
+        plt.ylim([0,360])
+        plt.subplot(n,6,5+m)
+        plt.plot(df.capom)
+        plt.ylim([0,360])
+        plt.subplot(n,6,6+m)
+        plt.plot(df.geo_w)
+        plt.ylim([0,360])
+        if not same_plot: m += 6
