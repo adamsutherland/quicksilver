@@ -114,7 +114,7 @@ def solve_with_second(mp, ms, d, a,n):
     n1 = mean_mo(mp,ms,a)
     a=int(a)
     for x in xrange(16):
-        r=1
+        r=0.0
         while (r < n):
             a = a + 10**-x
             r =  n1/mod_mean_mo(mp,ms,d,a)
@@ -519,7 +519,7 @@ def xv2el_array_bound(mu,x,y,z,vx,vy,vz):
 
     return a, ecc, np.degrees(inc), np.degrees(omega), np.degrees(capom), np.degrees(capm)
 
-def mod_elements(s1,s2,df):
+def mod_elements(s1,s2,df,prog=False):
     theta = np.deg2rad(-df.capom)
     x1 = df.x * np.cos(theta) - df.y *np.sin(theta)
     y1 = df.x * np.sin(theta) + df.y *np.cos(theta)
@@ -537,6 +537,7 @@ def mod_elements(s1,s2,df):
     windo = int(windo/df.time[1])
     #print windo
     mask = (df['r0'] == df['r0'].rolling(windo, center = True).min())
+    df['mask_peri']= mask
 
 
     df['w'] = np.arctan2(df['y0'],df['x0'])
@@ -567,9 +568,10 @@ def mod_elements(s1,s2,df):
     year = period(.5,.5,1.0)
     count = 0.05
     for n in xrange(num):
-        if n/float(num) > count:
-            print round(float(n)/num*100),'%'
-            count +=0.05 
+        if prog:
+            if n/float(num) > count:
+                print round(float(n)/num*100),'%'
+                count +=0.05 
         if mask[n]: 
             M[n] = 0
             tau = df.time[n]
