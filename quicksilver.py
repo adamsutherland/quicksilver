@@ -71,8 +71,14 @@ def mod_mean_mo(mp,ms,d,a):
     n2 = G*( 45*d**4*mp*ms*(mp**2-mp*ms+ms**2) + 48*d**2*mp*ms*(mp+ms)**2*a**2 + 64*(mp+ms)**4*a**4)/(64 * (mp+ms)**3 * a**7)
     return n2**.5
 
-def period(mp, ms, a): # in days
+def mod_epic(mp,ms,d,a):
+    k2 = (G*(-135*d**4*ms*mp*(ms**2-ms*mp+mp**2) - 48*d**2*ms*mp*(ms+mp)**2*a**2 + 64*(ms+mp)**4*a**4))/(64.*(ms+mp)**3*a**7)
+    return k2**.5
+
+def period(mp, ms, a, years=False): # in days
     T = np.pi*2*(a**3/(G*(mp+ms)))**.5
+    if years:
+        T = T/period(1.0,0.0,1.0)
     return T
 
 def mod_period(mp,ms,d,a,years=False):
