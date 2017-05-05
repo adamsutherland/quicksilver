@@ -91,41 +91,28 @@ def sma(mp,ms,P):
     a = (G*(mp+ms)*P**2/(4*np.pi**2))**(1./3)
     return a
 
+def mod_a_from_n(mp, ms, d, n):
+    a=sma(mp,ms,2*np.pi/n)/2
+    for x in xrange(16):
+        r=0.0
+        while (r < 1):
+            a = a + 10**-x
+            r =  n/mod_mean_mo(mp,ms,d,a)
+        a=a-10**-x
+    return a
+
 def dist_resonance(mp, ms, d, r):
     a = d*r**(2./3.)
     return a
 
-def solve(mp, ms, d, a,n):
+def solve(mp, ms, d, a,ratio):
     n1 = mod_mean_mo(mp,ms,d,a)
-    if n>1:
-        a=int(a)
-        for x in xrange(16):
-            r=1
-            while (r < n):
-                a = a + 10**-x
-                r =  n1/mod_mean_mo(mp,ms,d,a)
-            a=a-10**-x
-        return a
-    if n<1:
-        a=0.0
-        for x in xrange(16):
-            r=0
-            while (r < n):
-                a = a + 10**-x
-                r = n1/mod_mean_mo(mp,ms,d,a)
-            a=a-10**-x
-        return a
+    n2 = n1/ratio
+    a2 = mod_a_from_n(mp,ms,d,n2)
+    return a2
 
-def solve_with_second(mp, ms, d, a,n):
-    n1 = mean_mo(mp,ms,a)
-    a=int(a)
-    for x in xrange(16):
-        r=0.0
-        while (r < n):
-            a = a + 10**-x
-            r =  n1/mod_mean_mo(mp,ms,d,a)
-        a=a-10**-x
-    return a
+def solve_with_second(mp, ms, d,ratio):
+    return mod_a_from_n(mp,ms,d,mean_mo(mp,ms,d)/ratio)
 
 def MCO_EL2X(mu,a,e,i,p,n,l):
     # Calculates Cartesian coordinates and velocities given Keplerian orbital
