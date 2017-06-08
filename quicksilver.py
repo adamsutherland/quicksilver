@@ -534,61 +534,7 @@ def mod_elements(s1,s2,df,prog=False,fast=True):
     df['w'] = np.arctan2(df['y0'],df['x0'])
     df['w'] = np.degrees(df['w'])
     df['w'] = df['w'] % 360
-    df['geo_w'] = pd.Series.copy(df['w'])
-    df['geo_w'][~mask] = np.nan
-    www = df['geo_w'].copy()[mask]
-    wt = df.time[mask]
-    mask2 = www-np.roll(www,-1) > 280
-    mask3 = www-np.roll(www,-1) < -280
-    wt1 = wt[mask2]
-    wt2 = wt[mask3]
-    for n in xrange(len(wt1)):#fixes linear interpolation problems with angles
-        df['geo_w'][df.time > wt1.values[n]] = df['geo_w'][df.time > wt1.values[n]]+360
-    for n in xrange(len(wt2)):
-        df['geo_w'][df.time > wt2.values[n]] = df['geo_w'][df.time > wt2.values[n]]-360
 
-    df['geo_w'] = df['geo_w'].interpolate(method='linear')
-    df['geo_w'] = df['geo_w'] % 360
-    df['geo_a'] = (df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())/2.0
-    df['geo_e'] = (df['r0'].rolling(2*windo, center = True).max() - df['r0'].rolling(2*windo, center = True).min())/(df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())
-        
-    num=len(df.time)
-    M = np.zeros(num)
-    tau = 0.0
-    w_tau = 0.0
-    year = period(.5,.5,1.0)
-    count = 0.05
-    if fast:
-        m_st = 0
-        for n in xrange(num):
-            if mask[n]: 
-                M[n] = m_st
-                m_st += 360
-                #tau = df.time[n]
-                #w_tau = df['geo_w'][n]
-            else:
-                #n0 = qs.mod_mean_mo(mu1,mu2,1.0,df['geo_a'][n])
-                #M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
-                M[n] = np.NAN
-        df['mod_M'] = M
-        df['mod_M'] = df['mod_M'].interpolate(method='linear')
-        df['mod_M'] = df['mod_M'] % 360
-    else:
-        for n in xrange(num):
-            if prog:
-                if n/float(num) > count:
-                    print round(float(n)/num*100),'%'
-                    count +=0.05 
-            if mask[n]: 
-                M[n] = 0
-                tau = df.time[n]
-                w_tau = df['geo_w'][n]
-            else:
-                n0 = mod_mean_mo(s1.mass[n],s2.mass[n],((s1.x[n]-s2.x[n])**2+(s1.y[n]-s2.y[n])**2+(s1.z[n]-s2.z[n])**2)**.5,df['geo_a'][n])
-                M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
-        df['mod_M'] = M % 360
-
-    df['true_anom'] = (df['w']-df['geo_w'])%360
     
     windo = period(s1.mass[0],s2.mass[0],df.a.median())/period(1,0,1)*1.25
     if windo > 0:
@@ -599,7 +545,7 @@ def mod_elements(s1,s2,df,prog=False,fast=True):
     
         df['geo_w'] = pd.Series.copy(df['w'])
         df['geo_w'][~mask] = np.nan
-        www = df['geo_w'][mask]
+        www = df['geo_w'].copy()[mask]
         wt = df.time[mask]
         mask2 = www-np.roll(www,-1) > 280
         mask3 = www-np.roll(www,-1) < -280
@@ -621,19 +567,36 @@ def mod_elements(s1,s2,df,prog=False,fast=True):
         w_tau = 0.0
         year = period(.5,.5,1.0)
         count = 0.05
-        for n in xrange(num):
-            if prog:
-                if n/float(num) > count:
-                    print round(float(n)/num*100),'%'
-                    count +=0.05 
-            if mask[n]: 
-                M[n] = 0
-                tau = df.time[n]
-                w_tau = df['geo_w'][n]
-            else:
-                n0 = mod_mean_mo(s1.mass[n],s2.mass[n],((s1.x[n]-s2.x[n])**2+(s1.y[n]-s2.y[n])**2+(s1.z[n]-s2.z[n])**2)**.5,df['geo_a'][n])
-                M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
-        df['mod_M'] = M % 360
+        if fast:
+            m_st = 0
+            for n in xrange(num):
+                if mask[n]: 
+                    M[n] = m_st
+                    m_st += 360
+                    #tau = df.time[n]
+                    #w_tau = df['geo_w'][n]
+                else:
+                    #n0 = qs.mod_mean_mo(mu1,mu2,1.0,df['geo_a'][n])
+                    #M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
+                    M[n] = np.NAN
+            df['mod_M'] = M
+            df['mod_M'] = df['mod_M'].interpolate(method='linear')
+            df['mod_M'] = df['mod_M'] % 360
+        else:
+            for n in xrange(num):
+                if prog:
+                    if n/float(num) > count:
+                        print round(float(n)/num*100),'%'
+                        count +=0.05 
+                if mask[n]: 
+                    M[n] = 0
+                    tau = df.time[n]
+                    w_tau = df['geo_w'][n]
+                else:
+                    n0 = mod_mean_mo(s1.mass[n],s2.mass[n],((s1.x[n]-s2.x[n])**2+(s1.y[n]-s2.y[n])**2+(s1.z[n]-s2.z[n])**2)**.5,df['geo_a'][n])
+                    M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
+            df['mod_M'] = M % 360
+    
         df['true_anom'] = (df['w']-df['geo_w'])%360
     
     return df
