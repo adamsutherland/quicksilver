@@ -43,14 +43,20 @@ def planet_orbit(mp, ms, d, a, e, theta):
     #return v
     return x, y, z, vx, vy, vz
 
-def mod_planet_orbit(mp, ms, d, a, e, theta):
+def mod_planet_orbit(mp, ms, d, a, e, theta, peri):
     #planet starts out at pericenter
     theta = np.deg2rad(theta)
-    v=mod_mean_mo(mp,ms,d,a)*a*((1-e)/(1+e))**.5
+    if peri:
+        v=mod_mean_mo(mp,ms,d,a)*a*((1+e)/(1-e))**.5
+    else:
+        v=mod_mean_mo(mp,ms,d,a)*a*((1-e)/(1+e))**.5
     vx=-np.sin(theta)*v
     vy=np.cos(theta)*v
     vp = secondary_orbit(mp, ms, d)*ms/(mp+ms)
-    p= (1+e)*a
+    if peri:
+        p= (1-e)*a
+    else:
+        p= (1+e)*a
     x=p*np.cos(theta)
     y=p*np.sin(theta)
     xp = d*ms/(mp+ms)
@@ -957,7 +963,7 @@ class quick:
         #self.y = np.array([])
         #self.z = np.array([])
 
-    def add_big(self, m, a, e=0, kep_or_mod="Mod", name="PL", theta=0):
+    def add_big(self, m, a, e=0, kep_or_mod="Mod", name="PL", theta=0, peri=False):
         #self.names = np.append(self.names,name)
         #self.a = np.append(self.a,a)
         #self.e = np.append(self.e,e)
@@ -967,12 +973,11 @@ class quick:
         newrow = [self.planet_num,name,m,a,e]
         if (kep_or_mod[0] == "k") or (kep_or_mod[0] == "K"):
             newrow = np.append(newrow,planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta))
-        
         if (kep_or_mod[0] == "m") or (kep_or_mod[0] == "M"):
-            newrow = np.append(newrow,mod_planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta))
+            newrow = np.append(newrow,mod_planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta,peri))
         self.planet_data = np.vstack([self.planet_data, newrow])
         
-    def add_small(self, a, m=0, e=0, kep_or_mod="Mod", name="SM", theta=0):
+    def add_small(self, a, m=0, e=0, kep_or_mod="Mod", name="SM", theta=0, peri=False):
         #self.names = np.append(self.names,name)
         #self.a = np.append(self.a,a)
         #self.e = np.append(self.e,e)
@@ -983,13 +988,16 @@ class quick:
         if (kep_or_mod[0] == "k") or (kep_or_mod[0] == "K"):
             newrow = np.append(newrow,planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta))
         if (kep_or_mod[0] == "m") or (kep_or_mod[0] == "M"):
-            newrow = np.append(newrow,mod_planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta))
+            newrow = np.append(newrow,mod_planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta,peri))
         self.small_data = np.vstack([self.small_data, newrow])
     
     def add_resonance(self, m, n, e=0, kep_or_mod="Mod", name="PL", theta=0):
         # adds planet at resonance to last added planet
         a = solve(self.primary_mass,self.secondary_mass,self.binary_separation,float(self.planet_data[self.planet_num][3]),n)
-        self.add_big(m, a, e, kep_or_mod, name, theta)    
+        if n > 1:
+            self.add_big(m, a, e, kep_or_mod, name, theta, peri=False)
+        else:
+            self.add_big(m, a, e, kep_or_mod, name, theta, peri=True)    
 
     def save_settings(self,name):#name is string
         self.collect_param()
