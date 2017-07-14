@@ -334,7 +334,12 @@ def process_all_binary(folder):
 
 def process_all_single(folder):
     aei2hdf(folder)
-    cal_elements(folder,'central')
+    s1 = pd.read_hdf(folder+'/STAR1.hdf','central')
+    hdfs = glob.glob(folder+'*.hdf')
+    for hdf in hdfs:
+        s = pd.read_hdf(hdf,'central')
+        s['a'], s['ecc'], s['inc'], s['pomega'], s['capom'], s['capm'] = xv2el_array_bound(G*s1.mass,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
+        s.to_hdf(hdf[:-4]+'.hdf','central')
 
 def read_param(paramfile):
     with open(paramfile) as param:
@@ -518,7 +523,7 @@ def xv2el_array_bound(mu,x,y,z,vx,vy,vz):
 
     return a, ecc, np.degrees(inc), np.degrees(omega), np.degrees(capom), np.degrees(capm)
 
-def mod_elements(s1,s2,df,prog=False,fast=True):
+def mod_elements(s1,s2,df):
     theta = np.deg2rad(-df.capom)
     x1 = df.x * np.cos(theta) - df.y *np.sin(theta)
     y1 = df.x * np.sin(theta) + df.y *np.cos(theta)
@@ -567,41 +572,11 @@ def mod_elements(s1,s2,df,prog=False,fast=True):
         df['geo_a'] = (df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())/2.0
         df['geo_e'] = (df['r0'].rolling(2*windo, center = True).max() - df['r0'].rolling(2*windo, center = True).min())/(df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())
             
-        num=len(df.time)
-        M = np.zeros(num)
-        tau = 0.0
-        w_tau = 0.0
-        year = period(.5,.5,1.0)
-        count = 0.05
-        if fast:
-            m_st = 0
-            for n in xrange(num):
-                if mask[n]: 
-                    M[n] = m_st
-                    m_st += 360
-                    #tau = df.time[n]
-                    #w_tau = df['geo_w'][n]
-                else:
-                    #n0 = qs.mod_mean_mo(mu1,mu2,1.0,df['geo_a'][n])
-                    #M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
-                    M[n] = np.NAN
-            df['mod_M'] = M
-            df['mod_M'] = df['mod_M'].interpolate(method='linear')
-            df['mod_M'] = df['mod_M'] % 360
-        else:
-            for n in xrange(num):
-                if prog:
-                    if n/float(num) > count:
-                        print round(float(n)/num*100),'%'
-                        count +=0.05 
-                if mask[n]: 
-                    M[n] = 0
-                    tau = df.time[n]
-                    w_tau = df['geo_w'][n]
-                else:
-                    n0 = mod_mean_mo(s1.mass[n],s2.mass[n],((s1.x[n]-s2.x[n])**2+(s1.y[n]-s2.y[n])**2+(s1.z[n]-s2.z[n])**2)**.5,df['geo_a'][n])
-                    M[n] =  np.degrees(n0 * (df.time[n]-tau)*year) - (df['geo_w'][n]-w_tau)
-            df['mod_M'] = M % 360
+        df["mod_M"] = np.empty((len(df)))
+        df.mod_M= np.NAN
+        df.mod_M[df.mask_peri] =np.arange(0,360*len(df.mod_M[df.mask_peri]),360)
+        df['mod_M'] = df['mod_M'].interpolate(method='linear')
+        df['mod_M'] = df['mod_M'] % 360
     
         df['true_anom'] = (df['w']-df['geo_w'])%360
     
@@ -621,16 +596,6 @@ def toc():
         print "Elapsed time is " + str(time.time() - startTime_for_tictoc) + " seconds."
     else:
         print "Toc: start time not set"
-
-def single(folder):
-    tic()
-    aeis = glob.glob(folder+'*.aei')
-    for aei in aeis:
-        print aei
-        p = read_aei(aei)
-        p = elements(p)
-        p.to_hdf(aei[:-4]+'.hdf','central')
-    toc()
 
 def aei2hdf(folder):
     tic()
@@ -661,6 +626,7 @@ def fates(folder):
     lines = [line.rstrip('\n') for line in open(folder+'info.out')]
     for hdf in hdfs:
         planet = hdf[len(folder):-4]
+        planet = planet+" "
         fate = 'survived'
         for line in lines:
             if (line.find(planet) > 0):
@@ -923,8 +889,6 @@ def bary(folder, el=True, unbound=False):
 
 class quick:
     def __init__(self, directory):
-        # 2. to refer to the inner class, you must use self.Bank
-        # 3. no need to use an inner class here
         self.directory = directory
         lines = [line.rstrip('\n') for line in open(self.directory+'param.in')]
         param = np.array([])
