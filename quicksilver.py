@@ -101,9 +101,13 @@ def mod_a_from_n(mp, ms, d, n):
     a=sma(mp,ms,2*np.pi/n)/2
     for x in xrange(16):
         r=0.0
+        count = 0
         while (r < 1):
+            count +=1
             a = a + 10**-x
             r =  n/mod_mean_mo(mp,ms,d,a)
+            if count > 100:
+                break
         a=a-10**-x
     return a
 
@@ -600,24 +604,27 @@ def toc():
 def aei2hdf(folder):
     tic()
     aeis = glob.glob(folder+'*.aei')
-    maxtime = 0
-    for aei in aeis:
-        print aei
-        p = read_aei(aei)
-        if len(p) > maxtime:
-            pmax = p
-            maxtime = len(p)
-        p.to_hdf(aei[:-4]+'.hdf','central')
-    s1 = pd.DataFrame()
-    s1['x'] =  pmax.x*0.0
-    s1['y'] =  pmax.y*0.0
-    s1['z'] =  pmax.z*0.0
-    s1['vx'] = pmax.vx*0.0
-    s1['vy'] = pmax.vy*0.0
-    s1['vz'] = pmax.vz*0.0
-    s1['time'] = pmax.time
-    s1['mass'] = read_param(folder+'/param.in')
-    s1.to_hdf(folder+"STAR1.hdf",'central')
+    if len(aeis) == 0:
+        print "ERROR: No .aei files found"
+    else:
+        maxtime = 0
+        for aei in aeis:
+            print aei
+            p = read_aei(aei)
+            if len(p) > maxtime:
+                pmax = p
+                maxtime = len(p)
+            p.to_hdf(aei[:-4]+'.hdf','central')
+        s1 = pd.DataFrame()
+        s1['x'] =  pmax.x*0.0
+        s1['y'] =  pmax.y*0.0
+        s1['z'] =  pmax.z*0.0
+        s1['vx'] = pmax.vx*0.0
+        s1['vy'] = pmax.vy*0.0
+        s1['vz'] = pmax.vz*0.0
+        s1['time'] = pmax.time
+        s1['mass'] = read_param(folder+'/param.in')
+        s1.to_hdf(folder+"STAR1.hdf",'central')
     toc()
     
 def fates(folder):
@@ -894,7 +901,7 @@ class quick:
         param = np.array([])
         for line in lines:
             if line.find("=") >0:
-                param = np.append(param,line[line.find("=")+2:])
+                param = np.append(param,line[line.find("=")+1:])
         self.param = param
         self.param_set()
         
@@ -904,7 +911,7 @@ class quick:
             if line.find('parameter') > 0:
                 if line.find('PI') < 0:
                     if line.find("=") >0:
-                        merc_in = np.append(merc_in,line[line.find("=")+2:-1])
+                        merc_in = np.append(merc_in,line[line.find("=")+1:-1])
         self.merc_in = merc_in
         self.merc_set()
         
@@ -1061,7 +1068,7 @@ class quick:
             if line.find("=") <0:
                 p.write(line+'\n')
             if line.find("=") >0:
-                p.write(line[:line.find("=")+1]+" "+self.param[param_count]+'\n')
+                p.write(line[:line.find("=")+1]+self.param[param_count]+'\n')
                 param_count +=1
         p.close()
         
@@ -1074,8 +1081,10 @@ class quick:
             if line.find('parameter') > 0:
                 if line.find('PI') < 0:
                     if line.find("=") >0:
-                        m.write(line[:line.find("=")+1]+" "+str(self.merc_in[merc_count])+')\n')
+                        m.write(line[:line.find("=")+1]+str(self.merc_in[merc_count])+')\n')
                         merc_count +=1
+                else:
+                    m.write(line+'\n')
             else:
                 m.write(line+'\n')
         m.close()
