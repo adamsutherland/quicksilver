@@ -349,7 +349,7 @@ def read_param(paramfile):
     with open(paramfile) as param:
         for line in param:
             if 'mass' in line:
-                mass = line[24:]
+                mass = line[23:]
     return float(mass)
 
 def read_clo(closefile):
