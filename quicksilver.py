@@ -15,6 +15,7 @@ G = 2.959122082855911E-4
 
 def read_aei(filename):
     df = pd.read_csv(filename, names=['time', 'mass', 'x', 'y', 'z', 'vx', 'vy', 'vz'], delim_whitespace=True, skiprows=4)
+    df = df.astype('float64')
     return df
 
 def secondary_orbit(mp, ms, d):
@@ -342,7 +343,7 @@ def process_all_single(folder):
     hdfs = glob.glob(folder+'*.hdf')
     for hdf in hdfs:
         s = pd.read_hdf(hdf,'central')
-        s['a'], s['ecc'], s['inc'], s['pomega'], s['capom'], s['capm'] = xv2el_array_bound(G*s1.mass,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
+        s['a'], s['ecc'], s['inc'], s['pomega'], s['capom'], s['capm'] = xv2el_array_bound(G*s1[:len(s)].mass,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
         s.to_hdf(hdf[:-4]+'.hdf','central')
 
 def read_param(paramfile):
@@ -612,8 +613,8 @@ def aei2hdf(folder):
             print aei
             p = read_aei(aei)
             if len(p) > maxtime:
-                pmax = p
-                maxtime = len(p)
+                pmax = p#.dropna()
+                maxtime = len(pmax)
             p.to_hdf(aei[:-4]+'.hdf','central')
         s1 = pd.DataFrame()
         s1['x'] =  pmax.x*0.0
