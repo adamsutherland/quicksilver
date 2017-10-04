@@ -357,6 +357,24 @@ def read_clo(closefile):
     df = pd.read_csv(closefile, names=['time', 'object', 'dmin', 'a1', 'e1', 'i1', 'a2', 'e2', 'i2'], delim_whitespace=True, skiprows=4)
     return df
 
+def rebound_process(folder):
+    """Requires a 'info.txt' file with the number of bodies in the integration. 
+    Also modifications to reb_output_ascii in output.c to output time and mass."""
+    names2=["time","mass","x","y","z","vx","vy","vz"]
+    num_bod = pd.read_csv(folder+"info.txt").NBod[0]
+    xyz = pd.read_csv(folder+"output.txt",delim_whitespace=True,header=None,names=names2)
+    star_count = 0
+    for body in xrange(num_bod):
+        print body,
+        p = xyz.iloc[body::num_bod, :].reset_index(drop=True)
+        if body == 0:
+            central_mass = p.mass.median()
+        if p.mass.median() > 0.007*central_mass:
+            p.to_hdf(folder+"STAR"+str(body+1)+'.hdf','bary')
+            star_count += 1
+        else:
+            p.to_hdf(folder+"PL"+str(body+1-star_count)+'.hdf','bary')
+
 #def get_fate(hdf):
 #    hdf = tables.open_file(hdf, mode='r')
 #    return hdf.root._v_attrs.fate
@@ -551,10 +569,16 @@ def mod_elements(s1,s2,df):
     df['w'] = np.degrees(df['w'])
     df['w'] = df['w'] % 360
 
-    
+    if df.a.median() <0:
+        print("negative a")
     windo = period(s1.mass[0],s2.mass[0],df.a.median())/period(1,0,1)*1.25
-    if windo > 0:
+    windo = int(windo/df.time[1])
+    if windo < 1:
+        print("Output too infrequent")
+    else:
         windo = int(windo/df.time[1])
+        if windo < 1:
+            print ""
         #print windo
         mask = (df['r0'] == df['r0'].rolling(windo, center = True).min())
         df['mask_peri']= mask
@@ -894,6 +918,33 @@ def bary(folder, el=True, unbound=False):
     #p.to_hdf(folder+"STAR1.hdf",'totalbary')
     toc()
 
+def bary_to_central(folder, el = False, unbound=False):
+    s1 = pd.read_hdf(folder+"STAR1.hdf",'bary')
+    xc = s1.x
+    yc = s1.y
+    zc = s1.z
+    uc = s1.vx
+    vc = s1.vy
+    wc = s1.vz
+    hdfs = glob.glob(folder+'*.hdf')
+    for hdf in hdfs:
+        print hdf
+        p = pd.read_hdf(hdf,'bary')
+        pb = pd.DataFrame()
+        pb['x'] = p.x - xc
+        pb['y'] = p.y - yc
+        pb['z'] = p.z - zc
+        pb['vx'] = p.vx - uc
+        pb['vy'] = p.vy - vc
+        pb['vz'] = p.vz - wc
+        pb['time'] = p.time
+        pb['mass'] = p.mass
+        if el:
+            if unbound:
+                pb = elements(pb,s1.mass)
+            else:
+                pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
+        pb.to_hdf(hdf,'central')
 
 class quick:
     def __init__(self, directory):
