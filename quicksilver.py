@@ -367,6 +367,7 @@ def rebound_process(folder):
     for body in xrange(num_bod):
         print body,
         p = xyz.iloc[body::num_bod, :].reset_index(drop=True)
+        p.time = p.time/np.pi/2.0
         if body == 0:
             central_mass = p.mass.median()
         if p.mass.median() > 0.007*central_mass:
