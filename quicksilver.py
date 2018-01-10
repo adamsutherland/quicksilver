@@ -572,15 +572,16 @@ def mod_elements(s1,s2,df):
 
     if df.a.median() <0:
         print("negative a")
-    windo = period(s1.mass[0],s2.mass[0],df.a.median())/period(1,0,1)*1.25
-    windo = int(windo/df.time[1])
+    windo = period(s1.mass.iloc[0],s2.mass.iloc[0],df.a.median())/period(1,0,1)*1.25
+    #dt = df.time.iloc[2]-df.time.iloc[1]
+    #dt = df.time.diff()[df.time.diff()>0].median()
+    dt = df.time.diff().mean()
+    windo = int(windo/dt)
     if windo < 1:
         print("Output too infrequent")
     else:
-        windo = int(windo/df.time[1])
-        if windo < 1:
-            print ""
-        #print windo
+        if windo < 100:
+            print("Warning: Fewer than 100 outputs per orbit. Increase sampling.")
         mask = (df['r0'] == df['r0'].rolling(windo, center = True).min())
         df['mask_peri']= mask
     
@@ -612,7 +613,18 @@ def mod_elements(s1,s2,df):
     
     return df
 
-    
+def high_freq_pro(s1,s2,p1):
+    n = len(p1.time.diff(1)[p1.time.diff(1)>p1.time.diff(1).median()*100])
+    nhf = len(p1.time)/(n+1)
+    df = pd.DataFrame()
+    for step in xrange(n+1):
+        p11 = p1[1+step*nhf:1+(step+1)*nhf]
+        s11 = s1[1+step*nhf:1+(step+1)*nhf]
+        s22 = s2[1+step*nhf:1+(step+1)*nhf]
+        p11 = mod_elements(s11,s22,p11)
+        df = pd.concat([df,p11])
+    return df
+        
 
 def tic():
     #Homemade version of matlab tic and toc functions
