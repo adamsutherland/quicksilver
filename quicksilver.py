@@ -99,6 +99,7 @@ def sma(mp,ms,P):
     return a
 
 def mod_a_from_n(mp, ms, d, n):
+    """Finds sma from mean motion, n"""
     a=sma(mp,ms,2*np.pi/n)/2
     for x in xrange(16):
         r=0.0
@@ -574,9 +575,11 @@ def mod_elements(s1,s2,df):
         print("negative a")
     windo = period(s1.mass.iloc[0],s2.mass.iloc[0],df.a.median())/period(1,0,1)*1.25
     #dt = df.time.iloc[2]-df.time.iloc[1]
-    #dt = df.time.diff()[df.time.diff()>0].median()
     dt = df.time.diff().mean()
-    windo = int(windo/dt)
+    if dt == 0:
+        windo = 0
+    else:
+        windo = int(windo/dt)
     if windo < 1:
         print("Output too infrequent")
     else:
@@ -617,7 +620,9 @@ def high_freq_pro(s1,s2,p1):
     n = len(p1.time.diff(1)[p1.time.diff(1)>p1.time.diff(1).median()*100])
     nhf = len(p1.time)/(n+1)
     df = pd.DataFrame()
-    for step in xrange(n+1):
+    for step in xrange(n/1000):
+        step *=1000
+        print str(step/float(n+1))
         p11 = p1[1+step*nhf:1+(step+1)*nhf]
         s11 = s1[1+step*nhf:1+(step+1)*nhf]
         s22 = s2[1+step*nhf:1+(step+1)*nhf]
