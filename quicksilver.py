@@ -72,6 +72,7 @@ def mod_planet_orbit(mp, ms, d, a, e, theta, peri):
     return x, y, z, vx, vy, vz
 
 def mean_mo(mp,ms,a):
+
     return ( G*(mp+ms)/a**3 )**.5
 
 def mod_mean_mo(mp,ms,d,a):
@@ -125,6 +126,37 @@ def solve(mp, ms, d, a,ratio):
 
 def solve_with_second(mp, ms, d,ratio):
     return mod_a_from_n(mp,ms,d,mean_mo(mp,ms,d)/ratio)
+
+def eeo(eo):
+    return np.arccosh(1/eo)-np.sqrt(1-eo**2)
+
+def sigma_mard(m1,m2,m3,eo,ei,N):
+    m12 = m1+m2
+    m123 = m1+m2+m3
+    H22=0.71
+    sig = 6*H22**.5/(2*np.pi)**.25 * (m3/m123+N**(2./3.)*(m12/m123)**(2./3.)*(m1*m2/m12**2))**.5 * (ei**.5/eo)*(1-13/24.*ei**2)**.5 *(1-eo**2)**0.375*N**.75*np.e**(-N*eeo(eo)/2)
+    return sig
+
+def mard_width(m1,m2,m3,d,eo,ei,N):
+    sig_m = sigma_mard(m1,m2,m3,eo,ei,N)
+    width = mod_a_from_n(m1,m2,d,mean_mo(m1,m2,d)/(sig_m+N))
+    amax = mod_a_from_n(m1,m2,d,mean_mo(m1,m2,d)/(sig_m+N))
+    amin = mod_a_from_n(m1,m2,d,mean_mo(m1,m2,d)/(-sig_m+N))
+    #a = qs.mod_a_from_n(m1,m2,d,qs.mean_mo(m1,m2,d)/(N))
+    width = amax-amin
+    return width
+
+def a_N(m1,m2,d,N):
+    a = mod_a_from_n(m1,m2,d,mean_mo(m1,m2,d)/(N))
+    return a
+
+def lib_mard(m1,m2,m3,d,eo,ei,N):
+    mm = mean_mo(m1,m2,d)/N
+    sig = sigma_mard(m1,m2,m3,eo,ei,N)
+    return mm*sig/2.0
+
+def rate(m1,m2,m3,d,eo,ei,N):
+    return mard_width(m1,m2,m3,d,eo,ei,N)/(2*np.pi/lib_mard(m1,m2,m3,d,eo,ei,N))
 
 def MCO_EL2X(mu,a,e,i,p,n,l):
     # Calculates Cartesian coordinates and velocities given Keplerian orbital
@@ -571,15 +603,17 @@ def mod_elements(s1,s2,df):
     df['w'] = np.degrees(df['w'])
     df['w'] = df['w'] % 360
 
-    if df.a.median() <0:
-        print("negative a")
     windo = period(s1.mass.iloc[0],s2.mass.iloc[0],df.a.median())/period(1,0,1)*1.25
     #dt = df.time.iloc[2]-df.time.iloc[1]
     dt = df.time.diff().mean()
     if dt == 0:
         windo = 0
     else:
-        windo = int(windo/dt)
+        if df.a.median() <0:
+            print("negative a")
+            windo = 0
+        else:
+            windo = int(windo/dt)
     if windo < 1:
         print("Output too infrequent")
     else:
@@ -620,8 +654,7 @@ def high_freq_pro(s1,s2,p1):
     n = len(p1.time.diff(1)[p1.time.diff(1)>p1.time.diff(1).median()*100])
     nhf = len(p1.time)/(n+1)
     df = pd.DataFrame()
-    for step in xrange(n/1000):
-        step *=1000
+    for step in xrange(n+1):
         print str(step/float(n+1))
         p11 = p1[1+step*nhf:1+(step+1)*nhf]
         s11 = s1[1+step*nhf:1+(step+1)*nhf]
@@ -630,7 +663,6 @@ def high_freq_pro(s1,s2,p1):
         df = pd.concat([df,p11])
     return df
         
-
 def tic():
     #Homemade version of matlab tic and toc functions
     import time
