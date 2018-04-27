@@ -127,6 +127,15 @@ def solve(mp, ms, d, a,ratio):
 def solve_with_second(mp, ms, d,ratio):
     return mod_a_from_n(mp,ms,d,mean_mo(mp,ms,d)/ratio)
 
+def solve_with_second_precess(mp,ms,d,p,q):
+    n1 = mean_mo(mp,ms,d)
+    a = mod_a_from_n(mp,ms,d,n1/(float(p+q)/(p)))
+    for x in xrange(13):
+        wdot = mod_mean_mo(mp,ms,d,a)-mod_epic(mp,ms,d,a)
+        n2 = (p*n1+q*wdot)/(p+q)
+        a = mod_a_from_n(mp,ms,d,n2)
+    return a
+
 def eeo(eo):
     return np.arccosh(1/eo)-np.sqrt(1-eo**2)
 
@@ -651,7 +660,8 @@ def mod_elements(s1,s2,df):
     return df
 
 def high_freq_pro(s1,s2,p1):
-    n = len(p1.time.diff(1)[p1.time.diff(1)>p1.time.diff(1).median()*100])
+    dt_med = p1.time.diff(1)[p1.time.diff(1)>0].median()
+    n = len(p1.time.diff(1)[p1.time.diff(1)>dt_med*100])
     nhf = len(p1.time)/(n+1)
     df = pd.DataFrame()
     for step in xrange(n+1):
