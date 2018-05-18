@@ -83,6 +83,12 @@ def mod_epic(mp,ms,d,a):
     k2 = (G*(-135*d**4*ms*mp*(ms**2-ms*mp+mp**2) - 48*d**2*ms*mp*(ms+mp)**2*a**2 + 64*(ms+mp)**4*a**4))/(64.*(ms+mp)**3*a**7)
     return k2**.5
 
+def precess(mp,ms,d,a,e):
+    """returns precession frequency"""
+    wdot = mod_mean_mo(mp,ms,d,a)-mod_epic(mp,ms,d,a)
+    wdot *=(1+1.5*e**2)
+    return wdot
+
 def period(mp, ms, a, years=False): # in days
     T = np.pi*2*(a**3/(G*(mp+ms)))**.5
     if years:
@@ -399,12 +405,12 @@ def read_clo(closefile):
     df = pd.read_csv(closefile, names=['time', 'object', 'dmin', 'a1', 'e1', 'i1', 'a2', 'e2', 'i2'], delim_whitespace=True, skiprows=4)
     return df
 
-def rebound_process(folder):
+def rebound_process(folder, output="output.txt"):
     """Requires a 'info.txt' file with the number of bodies in the integration. 
     Also modifications to reb_output_ascii in output.c to output time and mass."""
     names2=["time","mass","x","y","z","vx","vy","vz"]
     num_bod = pd.read_csv(folder+"info.txt").NBod[0]
-    xyz = pd.read_csv(folder+"output.txt",delim_whitespace=True,header=None,names=names2)
+    xyz = pd.read_csv(folder+output,delim_whitespace=True,header=None,names=names2)
     star_count = 0
     for body in xrange(num_bod):
         print body,
