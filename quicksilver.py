@@ -22,7 +22,7 @@ def secondary_orbit(mp, ms, d):
     v = (G*(mp+ms)/d)**.5
     return v
 
-def planet_orbit(mp, ms, d, a, e, theta):
+def planet_orbit(mp, ms, d, a, e, ebin, theta):
     theta = np.deg2rad(theta)
     v=(G*(mp+ms)/a*(1-e)/(1+e))**.5
     vx=-np.sin(theta)*v
@@ -31,9 +31,9 @@ def planet_orbit(mp, ms, d, a, e, theta):
     p= (1+e)*a # at apocenter
     x=p*np.cos(theta)
     y=p*np.sin(theta)
-    xp = d*ms/(mp+ms)
+    xp = d*ms/(mp+ms)*(1+ebin)
     x = x+ xp
-    vp = secondary_orbit(mp, ms, d)*ms/(mp+ms)
+    vp = secondary_orbit(mp, ms, d)*ms/(mp+ms)*((1-ebin)/(1+ebin))**.5
     vy=vy+vp
     #print 'PL'
     #print x, y, 0.0
@@ -44,7 +44,7 @@ def planet_orbit(mp, ms, d, a, e, theta):
     #return v
     return x, y, z, vx, vy, vz
 
-def mod_planet_orbit(mp, ms, d, a, e, theta, peri):
+def mod_planet_orbit(mp, ms, d, a, e, ebin, theta, peri):
     #planet starts out at pericenter
     theta = np.deg2rad(theta)
     if peri:
@@ -53,7 +53,7 @@ def mod_planet_orbit(mp, ms, d, a, e, theta, peri):
         v=mod_mean_mo(mp,ms,d,a)*a*((1-e)/(1+e))**.5
     vx=-np.sin(theta)*v
     vy=np.cos(theta)*v
-    vp = secondary_orbit(mp, ms, d)*ms/(mp+ms)
+    vp = secondary_orbit(mp, ms, d)*ms/(mp+ms)*((1-ebin)/(1+ebin))**.5
     if peri:
         p= (1-e)*a
     else:
@@ -72,7 +72,7 @@ def mod_planet_orbit(mp, ms, d, a, e, theta, peri):
     return x, y, z, vx, vy, vz
 
 def mean_mo(mp,ms,a):
-
+    """Returns Keplerian mean motion"""
     return ( G*(mp+ms)/a**3 )**.5
 
 def mod_mean_mo(mp,ms,d,a):
@@ -84,7 +84,7 @@ def mod_epic(mp,ms,d,a):
     return k2**.5
 
 def precess(mp,ms,d,a,e):
-    """returns precession frequency"""
+    """Returns precession frequency"""
     wdot = mod_mean_mo(mp,ms,d,a)-mod_epic(mp,ms,d,a)
     wdot *=(1+1.5*e**2)
     return wdot
@@ -272,7 +272,7 @@ def MCO_KEP(e,oldl):
             x = pi - u1
         else:
             x = u1
-        
+
         x2 = x*x
         sn = x*(1.0 + x2*(-.16605 + x2*.00761) )
         dsn = 1.0 + x2*(-.49815 + x2*.03805)
@@ -309,7 +309,7 @@ def MCO_KEP(e,oldl):
         z3 = pi - u2
     else:
         z3 = u2
-      
+
     big = (z3 > (.50*piby2))
     if (big) :
         x = piby2 - z3
@@ -329,12 +329,12 @@ def MCO_KEP(e,oldl):
     else:
         z1 = ss
         z2 = cc
-      
+
 
     if (bigg) :
         z1 = 2.0*u2 + z1 - pi
         z2 = 2.0 - z2
-      
+
 
     f0 = l - u2*ome - e*z1
     f1 = ome + e*z2
@@ -343,9 +343,9 @@ def MCO_KEP(e,oldl):
     z1 = f0/f1
     z2 = f0/(f2*z1+f1)
     mco_kep = sign*( u2 + f0/((f3*z1+f2)*z2+f1) )
-    
+
     return mco_kep
-    
+
 
 def elements(df,m):
     #tic()
@@ -371,7 +371,7 @@ def cal_elements(folder,coord):
     if coord == 'binarybary':
         sec = pd.read_hdf(folder+'/STAR2.hdf','binarybary')
         secondary_mass = sec.mass
-        central_mass = central_mass + secondary_mass 
+        central_mass = central_mass + secondary_mass
     for hdf in hdfs:
         df = pd.read_hdf(hdf,coord)
         el = elements(df,central_mass)
@@ -381,7 +381,7 @@ def cal_elements(folder,coord):
 def process_all_binary(folder):
     aei2hdf(folder)
     binary_bary(folder)
-    cal_elements(folder,'bary')
+    cal_elements(folder,'binarybary')
     jacobi(folder)
     cal_elements(folder,'jacobi')
 
@@ -406,7 +406,7 @@ def read_clo(closefile):
     return df
 
 def rebound_process(folder, output="output.txt"):
-    """Requires a 'info.txt' file with the number of bodies in the integration. 
+    """Requires a 'info.txt' file with the number of bodies in the integration.
     Also modifications to reb_output_ascii in output.c to output time and mass."""
     names2=["time","mass","x","y","z","vx","vy","vz"]
     num_bod = pd.read_csv(folder+"info.txt").NBod[0]
@@ -440,7 +440,7 @@ def xv2el_swifter(mu,x,y,z,vx,vy,vz):
   hyperbola=1
 
   a = 0.0; ecc = 0.0; inc = 0.0; capom = 0.0; omega = 0.0; capm = 0.0
-  
+
   r = np.sqrt(np.dot(x_vec, x_vec))
   v2 = np.dot(v_vec, v_vec)
   hx = x_vec[1]*v_vec[2] - x_vec[2]*v_vec[1]
@@ -455,7 +455,7 @@ def xv2el_swifter(mu,x,y,z,vx,vy,vz):
   if (fac < -1.0): inc = np.pi
   elif (fac < 1.0): inc = np.math.acos(fac)
   fac = np.sqrt(hx*hx + hy*hy)/h
-  if (fac < TINY): 
+  if (fac < TINY):
     u = np.math.atan2(x_vec[1], x_vec[0])
     if (hz < 0.0): u = -u
   else:
@@ -465,9 +465,9 @@ def xv2el_swifter(mu,x,y,z,vx,vy,vz):
   if (capom < 0.0): capom = capom + 2.*np.pi
   if (u < 0.0): u = u + 2.*np.pi
   if (abs(energy*r/mu) < np.sqrt(TINY)): iorbit_type = parabola
-  else: 
+  else:
     a = -0.5*mu/energy
-    if (a < 0.0): 
+    if (a < 0.0):
       fac = -h2/(mu*a)
       if (fac > TINY): iorbit_type = hyperbola
       else: iorbit_type = parabola
@@ -525,28 +525,28 @@ def xv2el_array_bound(mu,x,y,z,vx,vy,vz):
     vx = np.array(vx)
     vy = np.array(vy)
     vz = np.array(vz)
-    
+
     num = len(x)
-    
+
     TINY=np.ones(num)*4.E-15
     #ellipse= np.ones(num)
     #parabola=np.zeros(num)
     #hyperbola= np.ones(num)
-    
+
     a = np.zeros(num)
     ecc = np.zeros(num)
     inc = np.zeros(num)
     capom = np.zeros(num)
     omega = np.zeros(num)
     capm = np.zeros(num)
-    
+
     u = np.zeros(num)
     w = np.zeros(num)
     cape = np.zeros(num)
     face = np.zeros(num)
     capf = np.zeros(num)
     tmpf = np.zeros(num)
-    
+
     r = (x**2 + y**2 + z**2)**.5
     v2 = vx**2 + vy**2 + vz**2
     hx = y*vz - z*vy
@@ -569,13 +569,13 @@ def xv2el_array_bound(mu,x,y,z,vx,vy,vz):
     u[(fac >= TINY) & (np.sin(inc)!=0.)] = tmp[(fac >= TINY) & (np.sin(inc)!=0.)]
     capom[(capom < 0.0)] = capom[(capom < 0.0)] + 2.*np.pi
     u[(u < 0.0)] = u[(u < 0.0)] + 2.*np.pi
-    
+
     a = -0.5*mu/energy
     fac = 1.0 - h2/(mu*a)
-    
+
     cape[(fac <= TINY)] = u[(fac <= TINY)]
     w[(fac <= TINY)] = u[(fac <= TINY)]
-    
+
     ecc[(fac > TINY)] = np.sqrt(fac[(fac > TINY)])
     cape[(fac > TINY)] = np.zeros(num)[(fac > TINY)]
     tmp = (a - r)/(a*ecc)
@@ -611,7 +611,7 @@ def mod_elements(s1,s2,df):
     df['vx0'] = vx1
     df['vy0'] = vy1 * np.cos(beta) - vz1 *np.sin(beta)
     df['vz0'] = vy1 * np.sin(beta) + vz1 *np.cos(beta)
-    
+
     df['r'] = (df.x**2 + df.y**2 + df.z**2)**.5
     df['r0'] = (df['x0']**2 + df['y0']**2 + df['z0']**2)**.5
     df['w'] = np.arctan2(df['y0'],df['x0'])
@@ -636,7 +636,7 @@ def mod_elements(s1,s2,df):
             print("Warning: Fewer than 100 outputs per orbit. Increase sampling.")
         mask = (df['r0'] == df['r0'].rolling(windo, center = True).min())
         df['mask_peri']= mask
-    
+
         df['geo_w'] = pd.Series.copy(df['w'])
         df['geo_w'][~mask] = np.nan
         www = df['geo_w'].copy()[mask]
@@ -649,20 +649,20 @@ def mod_elements(s1,s2,df):
             df['geo_w'][df.time > wt1.values[n]] = df['geo_w'][df.time > wt1.values[n]]+360
         for n in xrange(len(wt2)):
             df['geo_w'][df.time > wt2.values[n]] = df['geo_w'][df.time > wt2.values[n]]-360
-    
+
         df['geo_w'] = df['geo_w'].interpolate(method='linear')
         df['geo_w'] = df['geo_w'] % 360
         df['geo_a'] = (df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())/2.0
         df['geo_e'] = (df['r0'].rolling(2*windo, center = True).max() - df['r0'].rolling(2*windo, center = True).min())/(df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())
-            
+
         df["mod_M"] = np.empty((len(df)))
         df.mod_M= np.NAN
         df.mod_M[df.mask_peri] =np.arange(0,360*len(df.mod_M[df.mask_peri]),360)
         df['mod_M'] = df['mod_M'].interpolate(method='linear')
         df['mod_M'] = df['mod_M'] % 360
-    
+
         df['true_anom'] = (df['w']-df['geo_w'])%360
-    
+
     return df
 
 def high_freq_pro(s1,s2,p1):
@@ -678,7 +678,7 @@ def high_freq_pro(s1,s2,p1):
         p11 = mod_elements(s11,s22,p11)
         df = pd.concat([df,p11])
     return df
-        
+
 def tic():
     #Homemade version of matlab tic and toc functions
     import time
@@ -717,7 +717,7 @@ def aei2hdf(folder):
         s1['mass'] = read_param(folder+'/param.in')
         s1.to_hdf(folder+"STAR1.hdf",'central')
     toc()
-    
+
 def fates(folder):
     # if the fate is itself, it means it was hit by others but was the more massive body
     hdfs = glob.glob(folder+'*.hdf')
@@ -782,7 +782,7 @@ def binary_bary(folder, el = True, unbound=False):
 
 def jacobi(folder, el = True, unbound=False):
     tic()
-    
+
     hdfs = glob.glob(folder+'STAR*.hdf')
     s = pd.read_hdf(folder+"STAR1.hdf",'central')
     mtot = s.mass
@@ -792,7 +792,7 @@ def jacobi(folder, el = True, unbound=False):
     mu = s.mass * s.vx
     mv = s.mass * s.vy
     mw = s.mass * s.vz
-    
+
     # write jacobi for central body
     s1 = pd.DataFrame()
     s1['x'] =  s.x*0.0
@@ -809,7 +809,7 @@ def jacobi(folder, el = True, unbound=False):
         else:
             s1['a'], s1['ecc'], s1['inc'], s1['pomega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
     s1.to_hdf(folder+"STAR1.hdf",'jacobi')
-    
+
     if len(hdfs) > 1:
         print 'Binary present'
         s2 = pd.read_hdf(folder+"STAR2.hdf",'central')
@@ -835,8 +835,8 @@ def jacobi(folder, el = True, unbound=False):
         mu = mu + s2.mass * s2.vx
         mv = mv + s2.mass * s2.vy
         mw = mw + s2.mass * s2.vz
-        
-    
+
+
     hdfs = glob.glob(folder+'PL*.hdf')
     hdfs.sort()
     for hdf in hdfs:  # excluding secondary (and last planet)
@@ -894,8 +894,8 @@ def jacobi(folder, el = True, unbound=False):
             else:
                 pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
         pj.to_hdf(hdf,'jacobi')
-    
-    
+
+
 #    if len(aeis) > 2: # yes the last one is really processed differently just to avoid the mx calculations
 #        p = read_aei(aeis[-2])
 #        temp = 1.0 / (mtot + m1)
@@ -911,7 +911,7 @@ def jacobi(folder, el = True, unbound=False):
 #        pj['mass'] = p.mass
 #        pj.to_hdf(aei[-2][:-4]+'.hdf','jacobi')
 #        print aeis[-2][:-4]
-        
+
     toc()
 
 def bary(folder, el=True, unbound=False):
@@ -925,14 +925,14 @@ def bary(folder, el=True, unbound=False):
     #    p = pd.read_hdf(hdf,'central')
     #    tot_mass += p.mass
     #print tot_mass
-    
+
     xb = 0.0
     yb = 0.0
     zb = 0.0
     ub = 0.0
     vb = 0.0
     wb = 0.0
-    
+
     for hdf in hdfs:
         print hdf
         p = pd.read_hdf(hdf,'central')
@@ -943,14 +943,14 @@ def bary(folder, el=True, unbound=False):
         vb += p.vy*p.mass
         wb += p.vz*p.mass
         tot_mass += p.mass
-    
+
     xb = xb/tot_mass
     yb = yb/tot_mass
     zb = zb/tot_mass
     ub = ub/tot_mass
     vb = vb/tot_mass
     wb = wb/tot_mass
-    
+
     for hdf in hdfs:
         print hdf
         p = pd.read_hdf(hdf,'central')
@@ -970,7 +970,7 @@ def bary(folder, el=True, unbound=False):
             else:
                 pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
         pb.to_hdf(hdf,'totalbary')
-        
+
     #print hdf
     #p = pd.DataFrame()
     #p['x'] =  - xb
@@ -1022,7 +1022,7 @@ class quick:
                 param = np.append(param,line[line.find("=")+1:])
         self.param = param
         self.param_set()
-        
+
         lines = [line.rstrip('\n') for line in open(self.directory+'mercury.inc')]
         merc_in= np.array([])
         for line in lines:
@@ -1032,7 +1032,7 @@ class quick:
                         merc_in = np.append(merc_in,line[line.find("=")+1:-1])
         self.merc_in = merc_in
         self.merc_set()
-        
+
         self.secondary_mass = .5
         self.binary_separation = .5
         self.binary_ecc = 0.0
@@ -1061,11 +1061,11 @@ class quick:
             name = name+str(self.planet_num)
         newrow = [self.planet_num,name,m,a,e]
         if (kep_or_mod[0] == "k") or (kep_or_mod[0] == "K"):
-            newrow = np.append(newrow,planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta))
+            newrow = np.append(newrow,planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,self.binary_ecc,theta))
         if (kep_or_mod[0] == "m") or (kep_or_mod[0] == "M"):
-            newrow = np.append(newrow,mod_planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta,peri))
+            newrow = np.append(newrow,mod_planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,self.binary_ecc,theta,peri))
         self.planet_data = np.vstack([self.planet_data, newrow])
-        
+
     def add_small(self, a, m=0, e=0, kep_or_mod="Mod", name="SM", theta=0, peri=False):
         #self.names = np.append(self.names,name)
         #self.a = np.append(self.a,a)
@@ -1075,18 +1075,18 @@ class quick:
             name = name+str(self.small_num)
         newrow = [self.small_num,name,m,a,e]
         if (kep_or_mod[0] == "k") or (kep_or_mod[0] == "K"):
-            newrow = np.append(newrow,planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta))
+            newrow = np.append(newrow,planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,self.binary_ecc,theta))
         if (kep_or_mod[0] == "m") or (kep_or_mod[0] == "M"):
-            newrow = np.append(newrow,mod_planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,theta,peri))
+            newrow = np.append(newrow,mod_planet_orbit(self.primary_mass,self.secondary_mass,self.binary_separation,a,e,self.binary_ecc,theta,peri))
         self.small_data = np.vstack([self.small_data, newrow])
-    
+
     def add_resonance(self, m, n, e=0, kep_or_mod="Mod", name="PL", theta=0):
         # adds planet at resonance to last added planet
         a = solve(self.primary_mass,self.secondary_mass,self.binary_separation,float(self.planet_data[self.planet_num][3]),n)
         if n > 1:
             self.add_big(m, a, e, kep_or_mod, name, theta, peri=False)
         else:
-            self.add_big(m, a, e, kep_or_mod, name, theta, peri=True)    
+            self.add_big(m, a, e, kep_or_mod, name, theta, peri=True)
 
     def save_settings(self,name):#name is string
         self.collect_param()
@@ -1094,7 +1094,7 @@ class quick:
         settings = np.append(self.param,self.merc_in)
         settings = np.append(settings,[self.secondary_mass,self.binary_separation,self.binary_ecc])
         np.save(name,settings)
-    
+
     def load_settings(self,name):
         settings = np.load(name+'.npy')
         self.param = settings[:23]
@@ -1104,7 +1104,7 @@ class quick:
         self.binary_ecc = float(settings[-1])
         self.param_set()
         self.merc_set()
-    
+
     def param_set(self):
         self.algorithm = self.param[0]
         self.start_time = self.param[1]
@@ -1129,7 +1129,7 @@ class quick:
         self.Hybrid_integrator_changeover = self.param[20]
         self.data_dumps = self.param[21]
         self.periodic_effects =self.param[22]
-        
+
     def collect_param(self):
         self.param[0] = self.algorithm
         self.param[1] = self.start_time
@@ -1167,17 +1167,17 @@ class quick:
         self.isbinary = self.merc_in[8]
         self.primary_name = self.merc_in[9]
         self.ce_binary = self.merc_in[10]
-    
+
     def collect_merc(self):
         self.merc_in = [self.max_num_bod,self.max_num_close,self.max_num_messages,self.huge,
                         self.max_num_files,self.K2,self.AU2cm,self.mass_sun2grams,
                         self.isbinary, self.primary_name,self.ce_binary]
-    
+
     def build(self):
         #make param.in
         if self.isbinary == '.FALSE.':
             self.secondary_mass = 0.0
-        
+
         self.collect_param()
         param_count=0
         lines = [line.rstrip('\n') for line in open(self.directory+'param.in')]
@@ -1189,7 +1189,7 @@ class quick:
                 p.write(line[:line.find("=")+1]+self.param[param_count]+'\n')
                 param_count +=1
         p.close()
-        
+
         #make mercury.inc
         self.collect_merc()
         merc_count = 0
@@ -1206,7 +1206,7 @@ class quick:
             else:
                 m.write(line+'\n')
         m.close()
-        
+
         #make big.in
         lines = [line.rstrip('\n') for line in open(self.directory+'big.in')]
         b = open(self.directory+"big.in",'w')
@@ -1223,7 +1223,7 @@ class quick:
             b.write(' '+self.planet_data[planet+1][8]+' '+self.planet_data[planet+1][9]+' '+self.planet_data[planet+1][10]+'\n')
             b.write(" 0.0 0.0 0.0"+'\n')
         b.close()
-        
+
         #make small.in
         lines = [line.rstrip('\n') for line in open(self.directory+'small.in')]
         s = open(self.directory+"small.in",'w')
@@ -1236,11 +1236,11 @@ class quick:
             s.write(' '+self.small_data[small+1][8]+' '+self.small_data[small+1][9]+' '+self.small_data[small+1][10]+'\n')
             s.write(" 0.0 0.0 0.0"+'\n')
         s.close()
-        
+
     #def run(self):
         #runmer = sh.Command(folder+'mercury6')
-        
-        
+
+
     #def run(self):
         #str1 = 'gfortran -o '+self.directory+'mercury6 '+self.directory+'mercury6_ras.for'
         #os.system('gfortran -o mercury66 mercury6_ras.for')
@@ -1267,7 +1267,7 @@ class quick:
         #print str1
         #os.system(str1)
         #op.process_all_binary(self.directory)
-        
+
 # Plotting
 def plot_elements(array_df, same_plot=False):
     n = len(array_df)
