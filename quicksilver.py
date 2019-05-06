@@ -60,7 +60,7 @@ def mod_planet_orbit(mp, ms, d, a, e, ebin, theta, peri):
         p= (1+e)*a
     x=p*np.cos(theta)
     y=p*np.sin(theta)
-    xp = d*ms/(mp+ms)
+    xp = d*ms/(mp+ms)*(1+ebin)
     x = x+ xp
     vy=vy+vp
     z = 0.0
