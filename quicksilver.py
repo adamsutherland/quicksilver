@@ -375,7 +375,7 @@ def cal_elements(folder,coord):
     for hdf in hdfs:
         df = pd.read_hdf(hdf,coord)
         el = elements(df,central_mass)
-        el.to_hdf(hdf,coord)
+        el.to_hdf(hdf,coord,format="t")
     toc()
 
 def process_all_binary(folder):
@@ -392,7 +392,7 @@ def process_all_single(folder):
     for hdf in hdfs:
         s = pd.read_hdf(hdf,'central')
         s['a'], s['ecc'], s['inc'], s['pomega'], s['capom'], s['capm'] = xv2el_array_bound(G*s1[:len(s)].mass,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
-        s.to_hdf(hdf[:-4]+'.hdf','central')
+        s.to_hdf(hdf[:-4]+'.hdf','central',format="t")
 
 def read_param(paramfile):
     with open(paramfile) as param:
@@ -419,10 +419,10 @@ def rebound_process(folder, output="output.txt"):
         if body == 0:
             central_mass = p.mass.median()
         if p.mass.median() > 0.007*central_mass:
-            p.to_hdf(folder+"STAR"+str(body+1)+'.hdf','bary')
+            p.to_hdf(folder+"STAR"+str(body+1)+'.hdf','bary',format="t")
             star_count += 1
         else:
-            p.to_hdf(folder+"PL"+str(body+1-star_count)+'.hdf','bary')
+            p.to_hdf(folder+"PL"+str(body+1-star_count)+'.hdf','bary',format="t")
 
 #def get_fate(hdf):
 #    hdf = tables.open_file(hdf, mode='r')
@@ -626,7 +626,9 @@ def mod_elements(s1,s2,df):
     else:
         if df.a.median() <0:
             print("negative a")
-            windo = 0
+            #windo = 0
+            windo = period(s1.mass.iloc[0],s2.mass.iloc[0],df.a.iloc[0])/period(1,0,1)*1.25
+            windo = int(windo/dt)
         else:
             windo = int(windo/dt)
     if windo < 1:
@@ -705,7 +707,7 @@ def aei2hdf(folder):
             if len(p) > maxtime:
                 pmax = p#.dropna()
                 maxtime = len(pmax)
-            p.to_hdf(aei[:-4]+'.hdf','central')
+            p.to_hdf(aei[:-4]+'.hdf','central',format="t")
         s1 = pd.DataFrame()
         s1['x'] =  pmax.x*0.0
         s1['y'] =  pmax.y*0.0
@@ -715,7 +717,7 @@ def aei2hdf(folder):
         s1['vz'] = pmax.vz*0.0
         s1['time'] = pmax.time
         s1['mass'] = read_param(folder+'/param.in')
-        s1.to_hdf(folder+"STAR1.hdf",'central')
+        s1.to_hdf(folder+"STAR1.hdf",'central',format="t")
     toc()
 
 def fates(folder):
@@ -734,7 +736,7 @@ def fates(folder):
                     fate = "ejected"
         print planet, fate
         fates = pd.DataFrame([fate])
-        fates.to_hdf(hdf,'fate')
+        fates.to_hdf(hdf,'fate',format="t")
         #hdf = tables.open_file(hdf, mode='a')
         #hdf.root._f_setattr('fate',fate)
         #hdf.close()
@@ -744,7 +746,7 @@ def close(folder):
     for clo in clos:
         print clo
         p = read_clo(clo)
-        p.to_hdf(clo[:-4]+'.hdf','close')
+        p.to_hdf(clo[:-4]+'.hdf','close',format="t")
 
 def binary_bary(folder, el = True, unbound=False):
     tic()
@@ -777,7 +779,7 @@ def binary_bary(folder, el = True, unbound=False):
                 pb = elements(pb,s1.mass+s2.mass)
             else:
                 pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass+s2.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
-        pb.to_hdf(hdf,'binarybary')
+        pb.to_hdf(hdf,'binarybary',format="t")
     toc()
 
 def jacobi(folder, el = True, unbound=False):
@@ -808,7 +810,7 @@ def jacobi(folder, el = True, unbound=False):
             s1 = elements(s1,mtot)
         else:
             s1['a'], s1['ecc'], s1['inc'], s1['pomega'], s1['capom'], s1['capm'] = xv2el_array_bound(G*mtot,s['x'],s['y'],s['z'],s['vx'],s['vy'],s['vz'])
-    s1.to_hdf(folder+"STAR1.hdf",'jacobi')
+    s1.to_hdf(folder+"STAR1.hdf",'jacobi',format="t")
 
     if len(hdfs) > 1:
         print 'Binary present'
@@ -828,7 +830,7 @@ def jacobi(folder, el = True, unbound=False):
                 sj = elements(sj,mtot)
             else:
                 sj['a'], sj['ecc'], sj['inc'], sj['pomega'], sj['capom'], sj['capm'] = xv2el_array_bound(G*mtot,sj['x'],sj['y'],sj['z'],sj['vx'],sj['vy'],sj['vz'])
-        sj.to_hdf(folder+'STAR2.hdf','jacobi')
+        sj.to_hdf(folder+'STAR2.hdf','jacobi',format="t")
         mx = mx + s2.mass * s2.x
         my = my + s2.mass * s2.y
         mz = mz + s2.mass * s2.z
@@ -864,7 +866,7 @@ def jacobi(folder, el = True, unbound=False):
                 pj = elements(pj,mtot)
             else:
                 pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
-        pj.to_hdf(hdf,'jacobi')
+        pj.to_hdf(hdf,'jacobi',format="t")
 
     hdfs = glob.glob(folder+'SM*.hdf')
     hdfs.sort()
@@ -893,7 +895,7 @@ def jacobi(folder, el = True, unbound=False):
                 pj = elements(pj,mtot)
             else:
                 pj['a'], pj['ecc'], pj['inc'], pj['pomega'], pj['capom'], pj['capm'] = xv2el_array_bound(G*mtot,pj['x'],pj['y'],pj['z'],pj['vx'],pj['vy'],pj['vz'])
-        pj.to_hdf(hdf,'jacobi')
+        pj.to_hdf(hdf,'jacobi',format="t")
 
 
 #    if len(aeis) > 2: # yes the last one is really processed differently just to avoid the mx calculations
@@ -969,7 +971,7 @@ def bary(folder, el=True, unbound=False):
                 pb = elements(pb,tot_mass)
             else:
                 pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*tot_mass,pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
-        pb.to_hdf(hdf,'totalbary')
+        pb.to_hdf(hdf,'totalbary',format="t")
 
     #print hdf
     #p = pd.DataFrame()
@@ -1010,7 +1012,7 @@ def bary_to_central(folder, el = False, unbound=False):
                 pb = elements(pb,s1.mass)
             else:
                 pb['a'], pb['ecc'], pb['inc'], pb['pomega'], pb['capom'], pb['capm'] = xv2el_array_bound(G*(s1.mass),pb['x'],pb['y'],pb['z'],pb['vx'],pb['vy'],pb['vz'])
-        pb.to_hdf(hdf,'central')
+        pb.to_hdf(hdf,'central',format="t")
 
 class quick:
     def __init__(self, directory):
