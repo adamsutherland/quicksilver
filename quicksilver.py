@@ -13,6 +13,8 @@ import glob as glob
 
 G = 2.959122082855911E-4
 
+pd.options.mode.chained_assignment = None  # default='warn'
+
 def read_aei(filename):
     df = pd.read_csv(filename, names=['time', 'mass', 'x', 'y', 'z', 'vx', 'vy', 'vz'], delim_whitespace=True, skiprows=4)
     df = df.astype('float64')
@@ -595,22 +597,24 @@ def xv2el_array_bound(mu,x,y,z,vx,vy,vz):
 
     return a, ecc, np.degrees(inc), np.degrees(omega), np.degrees(capom), np.degrees(capm)
 
-def mod_elements(s1,s2,df):
+def mod_elements(s1,s2,df,full=True):
     theta = np.deg2rad(-df.capom)
     x1 = df.x * np.cos(theta) - df.y *np.sin(theta)
     y1 = df.x * np.sin(theta) + df.y *np.cos(theta)
     z1 = df.z
-    vx1 = df.vx * np.cos(theta) - df.vy *np.sin(theta)
-    vy1 = df.vx * np.sin(theta) + df.vy *np.cos(theta)
-    vz1 = df.vz
+    if full:
+        vx1 = df.vx * np.cos(theta) - df.vy *np.sin(theta)
+        vy1 = df.vx * np.sin(theta) + df.vy *np.cos(theta)
+        vz1 = df.vz
 
     beta = np.deg2rad(-df.inc)
     df['x0'] = x1
     df['y0'] = y1 * np.cos(beta) - z1 *np.sin(beta)
     df['z0'] = y1 * np.sin(beta) + z1 *np.cos(beta)
-    df['vx0'] = vx1
-    df['vy0'] = vy1 * np.cos(beta) - vz1 *np.sin(beta)
-    df['vz0'] = vy1 * np.sin(beta) + vz1 *np.cos(beta)
+    if full:
+        df['vx0'] = vx1
+        df['vy0'] = vy1 * np.cos(beta) - vz1 *np.sin(beta)
+        df['vz0'] = vy1 * np.sin(beta) + vz1 *np.cos(beta)
 
     df['r'] = (df.x**2 + df.y**2 + df.z**2)**.5
     df['r0'] = (df['x0']**2 + df['y0']**2 + df['z0']**2)**.5
@@ -620,7 +624,9 @@ def mod_elements(s1,s2,df):
 
     windo = period(s1.mass.iloc[0],s2.mass.iloc[0],df.a.median())/period(1,0,1)*1.25
     #dt = df.time.iloc[2]-df.time.iloc[1]
+    print "### dt ###"
     dt = df.time.diff().mean()
+    print df.time.diff().mean(), df.time.diff().median()
     if dt == 0:
         windo = 0
     else:
@@ -630,54 +636,62 @@ def mod_elements(s1,s2,df):
             windo = period(s1.mass.iloc[0],s2.mass.iloc[0],df.a.iloc[0])/period(1,0,1)*1.25
             windo = int(windo/dt)
         else:
+            print windo, dt, windo/dt
             windo = int(windo/dt)
     if windo < 1:
         print("Output too infrequent")
     else:
         if windo < 100:
             print("Warning: Fewer than 100 outputs per orbit. Increase sampling.")
-        mask = (df['r0'] == df['r0'].rolling(windo, center = True).min())
-        df['mask_peri']= mask
-
-        df['geo_w'] = pd.Series.copy(df['w'])
-        df['geo_w'][~mask] = np.nan
-        www = df['geo_w'].copy()[mask]
-        wt = df.time[mask]
-        mask2 = www-np.roll(www,-1) > 280
-        mask3 = www-np.roll(www,-1) < -280
-        wt1 = wt[mask2]
-        wt2 = wt[mask3]
-        for n in xrange(len(wt1)):#fixes linear interpolation problems with angles
-            df['geo_w'][df.time > wt1.values[n]] = df['geo_w'][df.time > wt1.values[n]]+360
-        for n in xrange(len(wt2)):
-            df['geo_w'][df.time > wt2.values[n]] = df['geo_w'][df.time > wt2.values[n]]-360
-
-        df['geo_w'] = df['geo_w'].interpolate(method='linear')
-        df['geo_w'] = df['geo_w'] % 360
         df['geo_a'] = (df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())/2.0
         df['geo_e'] = (df['r0'].rolling(2*windo, center = True).max() - df['r0'].rolling(2*windo, center = True).min())/(df['r0'].rolling(2*windo, center = True).min() + df['r0'].rolling(2*windo, center = True).max())
+        if full:
+            mask = (df['r0'] == df['r0'].rolling(windo, center = True).min())
+            df['mask_peri']= mask
 
-        df["mod_M"] = np.empty((len(df)))
-        df.mod_M= np.NAN
-        df.mod_M[df.mask_peri] =np.arange(0,360*len(df.mod_M[df.mask_peri]),360)
-        df['mod_M'] = df['mod_M'].interpolate(method='linear')
-        df['mod_M'] = df['mod_M'] % 360
+            df['geo_w'] = pd.Series.copy(df['w'])
+            df['geo_w'][~mask] = np.nan
+            www = df['geo_w'].copy()[mask]
+            wt = df.time[mask]
+            mask2 = www-np.roll(www,-1) > 280
+            mask3 = www-np.roll(www,-1) < -280
+            wt1 = wt[mask2]
+            wt2 = wt[mask3]
+            for n in xrange(len(wt1)):#fixes linear interpolation problems with angles
+                df['geo_w'][df.time > wt1.values[n]] = df['geo_w'][df.time > wt1.values[n]]+360
+            for n in xrange(len(wt2)):
+                df['geo_w'][df.time > wt2.values[n]] = df['geo_w'][df.time > wt2.values[n]]-360
 
-        df['true_anom'] = (df['w']-df['geo_w'])%360
+            df['geo_w'] = df['geo_w'].interpolate(method='linear')
+            df['geo_w'] = df['geo_w'] % 360
 
+            df["mod_M"] = np.empty((len(df)))
+            df.mod_M= np.NAN
+            df.mod_M[df.mask_peri] =np.arange(0,360*len(df.mod_M[df.mask_peri]),360)
+            df['mod_M'] = df['mod_M'].interpolate(method='linear')
+            df['mod_M'] = df['mod_M'] % 360
+
+            df['true_anom'] = (df['w']-df['geo_w'])%360
+            df.mask_peri = df.mask_peri.astype(int)
     return df
 
-def high_freq_pro(s1,s2,p1):
+def high_freq_pro(s1,s2,p1,full=True):
     dt_med = p1.time.diff(1)[p1.time.diff(1)>0].median()
     n = len(p1.time.diff(1)[p1.time.diff(1)>dt_med*100])
     nhf = len(p1.time)/(n+1)
+    nhf = int(round(nhf,-1))
+    print
+    print
+    print dt_med, n, nhf
+    print
+    print
     df = pd.DataFrame()
     for step in xrange(n+1):
         print str(step/float(n+1))
-        p11 = p1[1+step*nhf:1+(step+1)*nhf]
-        s11 = s1[1+step*nhf:1+(step+1)*nhf]
-        s22 = s2[1+step*nhf:1+(step+1)*nhf]
-        p11 = mod_elements(s11,s22,p11)
+        p11 = p1[step*nhf:(step+1)*nhf]
+        s11 = s1[step*nhf:(step+1)*nhf]
+        s22 = s2[step*nhf:(step+1)*nhf]
+        p11 = mod_elements(s11,s22,p11,full)
         df = pd.concat([df,p11])
     return df
 
