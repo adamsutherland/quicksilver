@@ -660,13 +660,13 @@ def mod_elements(s1,s2,df,full=True):
             #fixes linear interpolation problems with angles
             w360 = pd.Series(np.ones(len(wt1)) *360,index=wt1.index)
             w360 = w360.cumsum()
-            w360 = pd.Series(w360,index=df.index)
-            w360 = w360.fillna(method='ffill')
+            w360 = pd.Series(w360,index=df[mask].index)-360
+            w360 = w360.fillna(method='bfill')
             w360 = w360.fillna(0)
             w_360 = pd.Series(np.ones(len(wt2)) *-360,index=wt2.index)
             w_360 = w_360.cumsum()
-            w_360 = pd.Series(w_360,index=df.index)
-            w_360 = w_360.fillna(method='ffill')
+            w_360 = pd.Series(w_360,index=df[mask].index)-360
+            w_360 = w_360.fillna(method='bfill')
             w_360 = w_360.fillna(0)
             df['geo_w'] = df['geo_w'] + w360
             df['geo_w'] = df['geo_w'] + w_360
