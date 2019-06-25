@@ -657,10 +657,19 @@ def mod_elements(s1,s2,df,full=True):
             mask3 = www-np.roll(www,-1) < -280
             wt1 = wt[mask2]
             wt2 = wt[mask3]
-            for n in xrange(len(wt1)):#fixes linear interpolation problems with angles
-                df['geo_w'][df.time > wt1.values[n]] = df['geo_w'][df.time > wt1.values[n]]+360
-            for n in xrange(len(wt2)):
-                df['geo_w'][df.time > wt2.values[n]] = df['geo_w'][df.time > wt2.values[n]]-360
+            #fixes linear interpolation problems with angles
+            w360 = pd.Series(np.ones(len(wt1)) *360,index=wt1.index)
+            w360 = w360.cumsum()
+            w360 = pd.Series(w360,index=df.index)
+            w360 = w360.fillna(method='ffill')
+            w360 = w360.fillna(0)
+            w_360 = pd.Series(np.ones(len(wt2)) *-360,index=wt2.index)
+            w_360 = w_360.cumsum()
+            w_360 = pd.Series(w_360,index=df.index)
+            w_360 = w_360.fillna(method='ffill')
+            w_360 = w_360.fillna(0)
+            df['geo_w'] = df['geo_w'] + w360
+            df['geo_w'] = df['geo_w'] + w_360
 
             df['geo_w'] = df['geo_w'].interpolate(method='linear')
             df['geo_w'] = df['geo_w'] % 360
